@@ -19,7 +19,7 @@ export default function PricingPage() {
     setLoading(true);
 
     const orderId = `Order_${Date.now()}`;
-    const amount = 250.00;
+    const amount = 300.00;
     const currency = "LKR";
 
     try {
@@ -32,23 +32,29 @@ export default function PricingPage() {
 
       const { hash, merchantId, formattedAmount } = await res.json();
 
-      // .env.local එකේ ඇති App URL එක (ngrok හෝ Live Domain එක) ලබා ගැනීම
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      if (!hash || !merchantId) {
+        alert("Payment initialization failed. Missing hash or merchantId.");
+        setLoading(false);
+        return;
+      }
 
-      // 2. Dynamic Form එකක් සාදා PayHere එකට Submit කිරීම
+      // Live Domain එක Dynamic ලෙස ලබා ගැනීම (Vercel Host වී ඇති Domain එක)
+      const appUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "");
+
+      // 2. Dynamic Form එකක් සාදා PayHere Sandbox Checkout එකට Submit කිරීම
       const form = document.createElement("form");
       form.method = "POST";
       form.action = "https://sandbox.payhere.lk/pay/checkout";
 
       const params: Record<string, string> = {
-        merchant_id: merchantId,
+        merchant_id: String(merchantId), // 👈 String එකක් බවට පත් කිරීම
         return_url: `${appUrl}/chaat?status=success`,
         cancel_url: `${appUrl}/pricing?status=cancel`,
         notify_url: `${appUrl}/api/payhere-notify`,
         order_id: orderId,
         items: "Maths App Monthly Subscription",
         currency: currency,
-        amount: formattedAmount,
+        amount: String(formattedAmount || "300.00"), // 👈 Backend එකෙන් එන exact string එක
         hash: hash,
         first_name: "Student",
         last_name: "User",
@@ -57,7 +63,7 @@ export default function PricingPage() {
         address: "No 1, Main Street",
         city: "Colombo",
         country: "Sri Lanka",
-        custom_1: userEmail, // 👈 Webhook එකේදී Firestore DB එකේ User ව සොයාගැනීමට Email එක යැවීම
+        custom_1: userEmail,
       };
 
       for (const key in params) {
@@ -90,7 +96,7 @@ export default function PricingPage() {
             <h2 className="text-xl font-bold text-slate-700">Free Plan</h2>
             <p className="text-3xl font-extrabold my-4">රු. 0 <span className="text-sm font-normal text-slate-500">/මාසෙට</span></p>
             <ul className="space-y-2 text-sm text-slate-600 mb-6">
-              <li>✅ දවසට Ask Questions 2යි</li>
+              <li>✅ දවසට Ask Questions 1යි</li>
               <li>✅ දවසට Photo Scan 1යි</li>
               <li>❌ Paper Generator නැත</li>
             </ul>
@@ -109,11 +115,11 @@ export default function PricingPage() {
           
           <div>
             <h2 className="text-xl font-bold text-slate-800">Pro Monthly Package</h2>
-            <p className="text-3xl font-extrabold text-emerald-600 my-4">රු. 250 <span className="text-sm font-normal text-slate-500">/මාසෙට</span></p>
+            <p className="text-3xl font-extrabold text-emerald-600 my-4">රු. 300.00 <span className="text-sm font-normal text-slate-500">/මාසෙට</span></p>
             <ul className="space-y-2 text-sm text-slate-700 mb-6">
-              <li>✅ දවසට Ask Questions 30යි</li>
-              <li>✅ දවසට Photo Scan 20යි</li>
-              <li>✅ මාසෙට Paper Generator 8යි</li>
+              <li>✅ දවසට Ask Questions 50යි</li>
+              <li>✅ දවසට Photo Scan 50යි</li>
+              <li>✅ මාසෙට Paper Generator 10යි</li>
               <li>✅ Instant AI Help</li>
             </ul>
           </div>
@@ -125,7 +131,7 @@ export default function PricingPage() {
               disabled={loading}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl shadow-md transition disabled:opacity-50 cursor-pointer"
             >
-              {loading ? "PayHere වෙත යොමු වෙමින්..." : "රු. 250 ගෙවා Upgrade වන්න 💳"}
+              {loading ? "PayHere වෙත යොමු වෙමින්..." : "රු. 300ගෙවා Upgrade වන්න 💳"}
             </button>
           </form>
         </div>
