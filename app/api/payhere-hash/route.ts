@@ -5,10 +5,10 @@ export async function POST(req: Request) {
   try {
     const { orderId, amount, currency } = await req.json();
 
-    const merchantId = process.env.NEXT_PUBLIC_PAYHERE_MERCHANT_ID;
-    const merchantSecret = process.env.PAYHERE_MERCHANT_SECRET;
+    // 🛑 .trim() භාවිතා කර අනවශ්‍ය Spaces ඉවත් කිරීම (අනිවාර්යයි)
+    const merchantId = (process.env.NEXT_PUBLIC_PAYHERE_MERCHANT_ID || "").trim();
+    const merchantSecret = (process.env.PAYHERE_MERCHANT_SECRET || "").trim();
 
-    // Environment Variables තිබේදැයි පරීක්ෂා කිරීම
     if (!merchantId || !merchantSecret) {
       console.error("PayHere Merchant ID or Secret is missing in environment variables.");
       return NextResponse.json(
@@ -17,20 +17,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Amount එක අනිවාර්යයෙන්ම දශම ස්ථාන 2ක් විය යුතුය (eg: "250.00")
     const formattedAmount = Number(amount).toFixed(2);
 
-    // 1. Merchant Secret එක MD5 කර Uppercase කිරීම
     const hashedSecret = crypto
       .createHash("md5")
       .update(merchantSecret)
       .digest("hex")
       .toUpperCase();
 
-    // 2. Main Hash String එක සැකසීම
     const hashString = merchantId + orderId + formattedAmount + currency + hashedSecret;
 
-    // 3. Main Hash එක MD5 කර Uppercase කිරීම
     const hash = crypto
       .createHash("md5")
       .update(hashString)

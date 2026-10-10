@@ -1,86 +1,53 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function PricingPage() {
+  const router = useRouter();
   const [userEmail, setUserEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   useEffect(() => {
     const email = localStorage.getItem("userEmail") || "";
     setUserEmail(email);
-  }, []);
 
-  const handlePayHereSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    const orderId = `Order_${Date.now()}`;
-    const amount = 300.00;
-    const currency = "LKR";
-
-    try {
-      // 1. Backend API එකෙන් Security Hash එක ලබා ගැනීම
-      const res = await fetch("/api/payhere-hash", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, amount, currency }),
-      });
-
-      const { hash, merchantId, formattedAmount } = await res.json();
-
-      if (!hash || !merchantId) {
-        alert("Payment initialization failed. Missing hash or merchantId.");
-        setLoading(false);
-        return;
+    // 💡 PayHere එකෙන් සල්ලි ගෙවලා ආපහු මේ පිටුවට ආවම ක්‍රියාත්මක වෙන කොටස
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("status") === "success") {
+      const pendingPayment = localStorage.getItem("pendingPayment");
+      
+      if (pendingPayment === "true" && email) {
+        setLoading(true);
+        // අලුත් API එකට කතා කරලා Database එක Update කරනවා
+        fetch("/api/upgrade-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email }),
+        })
+          .then(() => {
+            localStorage.removeItem("pendingPayment"); // Flag එක අයින් කරනවා
+            alert("🎉 ඔබගේ ගෙවීම සාර්ථකයි! Pro Package එක Active විය.");
+            router.push("/chaat"); // Chaat එකට යවනවා
+          })
+          .catch(() => {
+            alert("Upgrade කිරීමේදී දෝෂයක් මතු විය!");
+            setLoading(false);
+          });
       }
-
-      // 2. Exact Domain Protocol එක සමග URL සකස් කිරීම
-      const origin = window.location.origin;
-
-      // Dynamic Form එකක් සාදා PayHere Sandbox Checkout එකට Submit කිරීම
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "https://sandbox.payhere.lk/pay/checkout";
-
-      const params: Record<string, string> = {
-        merchant_id: String(merchantId),
-        return_url: `${origin}/chaat?status=success`,
-        cancel_url: `${origin}/pricing?status=cancel`,
-        notify_url: `${origin}/api/payhere-notify`,
-        order_id: String(orderId),
-        items: "Maths App Monthly Subscription",
-        currency: String(currency),
-        amount: String(formattedAmount),
-        hash: String(hash),
-        first_name: "Student",
-        last_name: "User",
-        email: userEmail || "student@gmail.com",
-        phone: "0771234567",
-        address: "No 1, Main Street",
-        city: "Colombo",
-        country: "Sri Lanka",
-        custom_1: userEmail,
-      };
-
-      for (const key in params) {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = params[key];
-        form.appendChild(input);
-      }
-
-      document.body.appendChild(form);
-      form.submit();
-    } catch (err) {
-      console.error("Payment Error:", err);
-      alert("Payment එක ආරම්භ කිරීමට නොහැකි විය.");
-    } finally {
-      setLoading(false);
     }
+  }, [router]);
+
+  const handlePaymentClick = () => {
+    if (!userEmail) {
+      alert("කරුණාකර පළමුව ලොග් වී සිටින්න!");
+      return;
+    }
+    // 💡 ගෙවන්න යන්න කලින් බලාපොරොත්තු වෙනවා කියලා ලකුණු කරගන්නවා
+    localStorage.setItem("pendingPayment", "true");
+    
+    // PayHere Link එකට යවනවා
+    window.location.href = "https://sandbox.payhere.lk/pay/oc6f49a78";
   };
 
   return (
@@ -123,15 +90,13 @@ export default function PricingPage() {
             </ul>
           </div>
 
-          <form onSubmit={handlePayHereSubmit}>
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl shadow-md transition disabled:opacity-50 cursor-pointer"
-            >
-              {loading ? "PayHere වෙත යොමු වෙමින්..." : "රු. 300 ගෙවා Upgrade වන්න 💳"}
-            </button>
-          </form>
+          <button 
+            onClick={handlePaymentClick}
+            disabled={loading}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl shadow-md transition cursor-pointer disabled:opacity-50"
+          >
+            {loading ? "Update වෙමින් පවතී..." : "රු. 300 ගෙවා Upgrade වන්න 💳"}
+          </button>
         </div>
       </div>
     </div>
