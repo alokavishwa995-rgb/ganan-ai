@@ -9,7 +9,6 @@ export default function PricingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // LocalStorage එකෙන් හෝ Auth එකෙන් User Email එක ලබා ගැනීම
     const email = localStorage.getItem("userEmail") || "";
     setUserEmail(email);
   }, []);
@@ -38,24 +37,24 @@ export default function PricingPage() {
         return;
       }
 
-      // Live Domain එක Dynamic ලෙස ලබා ගැනීම (Vercel Host වී ඇති Domain එක)
-      const appUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "");
+      // 2. Exact Domain Protocol එක සමග URL සකස් කිරීම
+      const origin = window.location.origin;
 
-      // 2. Dynamic Form එකක් සාදා PayHere Sandbox Checkout එකට Submit කිරීම
+      // Dynamic Form එකක් සාදා PayHere Sandbox Checkout එකට Submit කිරීම
       const form = document.createElement("form");
       form.method = "POST";
       form.action = "https://sandbox.payhere.lk/pay/checkout";
 
       const params: Record<string, string> = {
-        merchant_id: String(merchantId), // 👈 String එකක් බවට පත් කිරීම
-        return_url: `${appUrl}/chaat?status=success`,
-        cancel_url: `${appUrl}/pricing?status=cancel`,
-        notify_url: `${appUrl}/api/payhere-notify`,
-        order_id: orderId,
+        merchant_id: String(merchantId),
+        return_url: `${origin}/chaat?status=success`,
+        cancel_url: `${origin}/pricing?status=cancel`,
+        notify_url: `${origin}/api/payhere-notify`,
+        order_id: String(orderId),
         items: "Maths App Monthly Subscription",
-        currency: currency,
-        amount: String(formattedAmount || "300.00"), // 👈 Backend එකෙන් එන exact string එක
-        hash: hash,
+        currency: String(currency),
+        amount: String(formattedAmount),
+        hash: String(hash),
         first_name: "Student",
         last_name: "User",
         email: userEmail || "student@gmail.com",
@@ -124,14 +123,13 @@ export default function PricingPage() {
             </ul>
           </div>
 
-          {/* 🎯 PayHere Checkout Form */}
           <form onSubmit={handlePayHereSubmit}>
             <button 
               type="submit" 
               disabled={loading}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl shadow-md transition disabled:opacity-50 cursor-pointer"
             >
-              {loading ? "PayHere වෙත යොමු වෙමින්..." : "රු. 300ගෙවා Upgrade වන්න 💳"}
+              {loading ? "PayHere වෙත යොමු වෙමින්..." : "රු. 300 ගෙවා Upgrade වන්න 💳"}
             </button>
           </form>
         </div>
