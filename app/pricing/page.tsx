@@ -2,52 +2,55 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import UpgradeModal from "@/components/UpgradeModal";
 
 export default function PricingPage() {
   const router = useRouter();
   const [userEmail, setUserEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     const email = localStorage.getItem("userEmail") || "";
     setUserEmail(email);
 
-    // 💡 PayHere එකෙන් සල්ලි ගෙවලා ආපහු මේ පිටුවට ආවම ක්‍රියාත්මක වෙන කොටස
+    // 💡 PayHere එකෙන් සල්ලි ගෙවලා return_url එක හරහා ආපහු මේ පිටුවට ආවම 
     const searchParams = new URLSearchParams(window.location.search);
-    if (searchParams.get("status") === "success") {
-      const pendingPayment = localStorage.getItem("pendingPayment");
-      
-      if (pendingPayment === "true" && email) {
-        setLoading(true);
-        // අලුත් API එකට කතා කරලා Database එක Update කරනවා
-        fetch("/api/upgrade-user", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email }),
-        })
-          .then(() => {
-            localStorage.removeItem("pendingPayment"); // Flag එක අයින් කරනවා
+    const status = searchParams.get("status");
+    const returnEmail = searchParams.get("email") || email;
+
+    if (status === "success" && returnEmail) {
+      // ඩේටාබේස් එක Pro Package එකට Update කිරීම
+      fetch("/api/upgrade-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: returnEmail }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
             alert("🎉 ඔබගේ ගෙවීම සාර්ථකයි! Pro Package එක Active විය.");
-            router.push("/chaat"); // Chaat එකට යවනවා
-          })
-          .catch(() => {
-            alert("Upgrade කිරීමේදී දෝෂයක් මතු විය!");
-            setLoading(false);
-          });
-      }
+            window.history.replaceState({}, document.title, window.location.pathname);
+            router.push("/chaat"); // Chat එකට යැවීම
+          }
+        })
+        .catch((err) => {
+          console.error("Upgrade Error:", err);
+          alert("Upgrade කිරීමේදී දෝෂයක් මතු විය!");
+        });
+    } else if (status === "cancel") {
+      alert("❌ ගෙවීම අවලංගු කරන ලදී.");
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [router]);
 
   const handlePaymentClick = () => {
     if (!userEmail) {
-      alert("කරුණාකර පළමුව ලොග් වී සිටින්න!");
+      alert("කරුණාකර පළමුව ගිණුමට ඇතුළු වන්න (Login වන්න)!");
+      router.push("/login");
       return;
     }
-    // 💡 ගෙවන්න යන්න කලින් බලාපොරොත්තු වෙනවා කියලා ලකුණු කරගන්නවා
-    localStorage.setItem("pendingPayment", "true");
-    
-    // PayHere Link එකට යවනවා
-    window.location.href = "https://sandbox.payhere.lk/pay/oc6f49a78";
+    // 💡 Upgrade Modal එක පෙන්වීම (මෙය මඟින් Hash සහ නිවැරදි විස්තර PayHere වෙත යවයි)
+    setShowUpgradeModal(true);
   };
 
   return (
@@ -69,7 +72,7 @@ export default function PricingPage() {
           </div>
           <button 
             onClick={() => router.push("/chaat")}
-            className="w-full bg-slate-200 text-slate-700 font-bold p-3 rounded-xl hover:bg-slate-300 transition"
+            className="w-full bg-slate-200 text-slate-700 font-bold p-3 rounded-xl hover:bg-slate-300 transition cursor-pointer"
           >
             දැනට භාවිතා කරන්න
           </button>
@@ -92,13 +95,19 @@ export default function PricingPage() {
 
           <button 
             onClick={handlePaymentClick}
-            disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl shadow-md transition cursor-pointer disabled:opacity-50"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl shadow-md transition cursor-pointer"
           >
-            {loading ? "Update වෙමින් පවතී..." : "රු. 300 ගෙවා Upgrade වන්න 💳"}
+            රු. 300 ගෙවා Upgrade වන්න 💳
           </button>
         </div>
       </div>
+
+      {/* Upgrade Modal Component */}
+      <UpgradeModal 
+        isOpen={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)} 
+        userEmail={userEmail}
+      />
     </div>
   );
 }
