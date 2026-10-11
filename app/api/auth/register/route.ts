@@ -37,21 +37,21 @@ export async function POST(req: Request) {
     const today = new Date().toISOString().split("T")[0];
     const currentMonth = new Date().toISOString().substring(0, 7);
 
-    // 3. Resend හරහා OTP Email එක යැවීම (Error Handling සහිතව)
+    // 3. Resend හරහා Custom Domain එකෙන් OTP Email එක යැවීම (Spam නොවීමට)
     try {
       await resend.emails.send({
-        from: "ගණිත මිතුරා <onboarding@resend.dev>",
+        from: "ගණිත මිතුරා <noreply@ganan.com.lk>",
         to: [cleanEmail],
-        subject: "ගණිත මිතුරා - Verification Code එක",
+        subject: "ගණිත මිතුරා AI - Verification Code එක",
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
-            <h2 style="color: #2563eb; text-align: center;">ගණිත මිතුරා 🎓</h2>
-            <p>ආයුබෝවන් <b>${cleanName}</b>,</p>
-            <p>ගණිත මිතුරා වෙත සාදරයෙන් පිළිගනිමු! ඔයාගේ ලියාපදිංචිය තහවුරු කිරීමට පහත තහවුරු කිරීමේ අංකය (OTP) ඇතුළත් කරන්න:</p>
-            <div style="background-color: #f1f5f9; padding: 15px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1e293b; border-radius: 8px; margin: 20px 0;">
+          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+            <h2 style="color: #059669; text-align: center;">ගණිත මිතුරා AI 📐</h2>
+            <p style="color: #334155;">ආයුබෝවන් <b>${cleanName}</b>,</p>
+            <p style="color: #334155;">ගණිත මිතුරා වෙත සාදරයෙන් පිළිගනිමු! ඔබගේ ලියාපදිංචිය තහවුරු කිරීමට පහත OTP අංකය ඇතුළත් කරන්න:</p>
+            <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 15px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #065f46; border-radius: 8px; margin: 20px 0;">
               ${otp}
             </div>
-            <p style="font-size: 13px; color: #64748b;">මෙම අංකය විනාඩි 10ක් ඇතුළත කල්ඉක්මවයි.</p>
+            <p style="font-size: 13px; color: #64748b; text-align: center;">මෙම අංකය විනාඩි 10ක් ඇතුළත කල්ඉක්මවයි.</p>
           </div>
         `,
       });
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { 
           success: false, 
-          message: "Email එක යැවීමට නොහැකි විය. (Resend Test Mode එකේදී යැවිය හැක්කේ ඔයාගේ Account Email එකට පමණි)." 
+          message: "Email එක යැවීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න." 
         },
         { status: 400 }
       );

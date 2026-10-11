@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -24,6 +25,7 @@ const parseAIResponse = (fullText: string) => {
 };
 
 export default function ScannerPage() {
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
@@ -32,29 +34,44 @@ export default function ScannerPage() {
   const [loading, setLoading] = useState(false);
 
   // 🎯 Local Storage Cache Hook එක (Scanner History එක සඳහා)
-  const { messages, addMessage, clearHistory, isLoaded } = useLocalChat("gmath_scanner_history");
+  const { messages, addMessage, clearHistory } = useLocalChat("gmath_scanner_history");
 
   // User Email එක සහ Limit Modal එක සඳහා States
   const [userEmail, setUserEmail] = useState<string>("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
-    startCamera();
     // LocalStorage එකෙන් Logged-in User Email එක ලබා ගැනීම
-    const email = localStorage.getItem("userEmail") || "student@gmail.com";
-    setUserEmail(email);
-  }, []);
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
-      });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (err) {
-      console.error("Camera Error: ", err);
+    const email = localStorage.getItem("userEmail");
+    if (!email) {
+      router.push("/login");
+      return;
     }
-  };
+    setUserEmail(email);
+
+    let streamInstance: MediaStream | null = null;
+
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } 
+        });
+        streamInstance = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (err) {
+        console.error("Camera Error: ", err);
+      }
+    };
+
+    startCamera();
+
+    // Page එකෙන් පිටව යද්දී Camera Stream එක Stop කිරීම
+    return () => {
+      if (streamInstance) {
+        streamInstance.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [router]);
 
   const capturePhoto = () => {
     const video = videoRef.current;
@@ -118,51 +135,58 @@ export default function ScannerPage() {
         setSolution(errorMsg);
       }
     } catch (err) {
-      alert("අවුලක් වුණා මචං!");
+      console.error("Scanner API Error:", err);
+      alert("පිළිතුර ලබාගැනීමට නොහැකි විය. නැවත උත්සාහ කරන්න!");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col font-sans overflow-hidden relative">
-      {/* Header */}
-      <div className="p-6 flex justify-between items-center bg-black/50 backdrop-blur-md fixed top-0 w-full z-20">
-        <Link href="/" className="text-2xl hover:opacity-80 transition">✕</Link>
-        <h2 className="text-lg font-bold">පින්තූරයක් ගන්න</h2>
+    <main className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-hidden">
+      {/* Header (Light Glassmorphism) */}
+      <div className="p-4 px-6 flex justify-between items-center bg-white/80 backdrop-blur-md border-b border-indigo-100 fixed top-0 w-full z-20 shadow-sm">
+        <Link href="/" className="text-xl text-indigo-600 font-bold hover:opacity-80 transition flex items-center gap-1">
+          <span>🔙</span> මුල් පිටුවට
+        </Link>
+        <h2 className="text-base font-extrabold text-indigo-900">ප්‍රශ්නය Scan කරන්න 📷</h2>
         
         {/* Previous Scans Clear Button */}
         {messages.length > 0 ? (
           <button 
             onClick={clearHistory}
-            className="text-xs bg-rose-500/20 text-rose-400 px-3 py-1 rounded-xl border border-rose-500/30 hover:bg-rose-500/30 transition"
+            className="text-xs bg-rose-50 text-rose-600 px-3 py-1.5 rounded-xl border border-rose-200 hover:bg-rose-100 transition font-medium"
           >
             Clear 🗑️
           </button>
         ) : (
-          <div className="w-8"></div>
+          <div className="w-12"></div>
         )}
       </div>
 
-      {/* Camera Viewport */}
-      <div className="flex-1 flex items-center justify-center relative bg-gray-900">
+      {/* Camera Viewport (Phone Screen එකේ ප්‍රමාණයට Fit වන පරිදි) */}
+      <div className="flex-1 flex items-center justify-center relative bg-slate-900 mt-[60px] h-[calc(100vh-160px)]">
         {!imgSrc ? (
           <>
             <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-72 h-48 border-2 border-white/50 rounded-3xl shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]"></div>
+            <div className="absolute inset-0 flex items-center justify-center p-6">
+              <div className="w-full max-w-xs h-64 border-2 border-dashed border-indigo-400 rounded-3xl shadow-[0_0_0_9999px_rgba(15,23,42,0.6)] flex items-center justify-center">
+                <span className="text-xs text-white/80 bg-slate-900/60 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                  ප්‍රශ්නය කොටුව ඇතුළත තබන්න
+                </span>
+              </div>
             </div>
           </>
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={imgSrc} alt="Captured" className="w-full h-full object-contain" />
+          <img src={imgSrc} alt="Captured" className="w-full h-full object-contain bg-slate-900" />
         )}
       </div>
 
-      {/* Control Actions */}
-      <div className="p-10 flex flex-col items-center bg-black z-10">
+      {/* Control Actions Bottom Bar (Light Theme) */}
+      <div className="p-5 px-6 flex flex-col items-center bg-white border-t border-indigo-50 z-10 shadow-lg">
         {!imgSrc ? (
-          <div className="flex items-center justify-center gap-8 w-full max-w-sm">
+          <div className="flex items-center justify-between w-full max-w-sm">
             <input 
               type="file" 
               accept="image/*" 
@@ -171,49 +195,52 @@ export default function ScannerPage() {
               onChange={handleGallerySelect} 
             />
             
-            <label htmlFor="gallery-input" className="w-12 h-12 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center cursor-pointer active:scale-95 transition border border-white/20">
+            <label htmlFor="gallery-input" className="w-12 h-12 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 transition border border-indigo-100 shadow-sm">
               <span className="text-xl">🖼️</span>
             </label>
 
-            <button onClick={capturePhoto} className="w-20 h-20 bg-white rounded-full border-4 border-gray-400 flex items-center justify-center active:scale-95 transition">
-              <div className="w-16 h-16 bg-white border-2 border-black rounded-full"></div>
+            <button onClick={capturePhoto} className="w-18 h-18 bg-indigo-600 p-1.5 rounded-full shadow-lg shadow-indigo-200 active:scale-95 transition">
+              <div className="w-full h-full bg-indigo-600 border-4 border-white rounded-full"></div>
             </button>
             
             <div className="w-12 h-12"></div>
           </div>
         ) : (
-          <div className="flex gap-4 w-full max-w-sm">
-            <button onClick={() => setImgSrc(null)} className="flex-1 bg-gray-800 hover:bg-gray-700 py-4 rounded-2xl font-bold transition">නැවත ගන්න</button>
-            <button onClick={sendToAI} disabled={loading} className="flex-1 bg-blue-600 hover:bg-blue-700 py-4 rounded-2xl font-bold shadow-lg shadow-blue-500/30 transition">
+          <div className="flex gap-3 w-full max-w-sm">
+            <button onClick={() => setImgSrc(null)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3.5 rounded-2xl font-bold transition">
+              නැවත ගන්න 🔄
+            </button>
+            <button onClick={sendToAI} disabled={loading} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-2xl font-bold shadow-md shadow-indigo-200 transition disabled:opacity-50">
               {loading ? "හිතමින් පවතිනවා..." : "විසඳුම ගන්න 🚀"}
             </button>
           </div>
         )}
       </div>
 
-      {/* විසඳුම සහ රූප සටහන (SVG + KaTeX Math Support) පෙන්වන UI එක */}
+      {/* විසඳුම පෙන්වන Modal එක (Light Theme + KaTeX Math) */}
       {solution && (
-        <div className="fixed inset-0 bg-[#f8faff] dark:bg-slate-900 z-50 p-4 sm:p-6 overflow-y-auto text-slate-800 dark:text-slate-100 transition-colors duration-300">
-          <div className="max-w-4xl mx-auto">
-            <button 
-              onClick={() => { setSolution(null); setSvgCode(null); }} 
-              className="mb-4 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 p-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 transition flex items-center justify-center"
-            >
-              ⬅️ ආපසු
-            </button>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 p-4 sm:p-6 overflow-y-auto flex justify-center items-start pt-10">
+          <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl border border-indigo-50 overflow-hidden my-auto">
+            <div className="p-4 bg-slate-50 border-b border-indigo-50 flex justify-between items-center">
+              <h3 className="text-base font-extrabold text-indigo-900">💡 ගණිත විසඳුම</h3>
+              <button 
+                onClick={() => { setSolution(null); setSvgCode(null); }} 
+                className="bg-white hover:bg-rose-50 text-rose-500 px-3 py-1.5 rounded-xl border border-rose-100 text-xs font-bold transition"
+              >
+                වහන්න ✕
+              </button>
+            </div>
             
-            <div className="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-[30px] shadow-md border border-blue-100 dark:border-slate-700">
-              <h3 className="text-xl font-bold mb-4 text-blue-900 dark:text-blue-400">විසඳුම:</h3>
-              
+            <div className="p-6 sm:p-8 max-h-[80vh] overflow-y-auto">
               {/* SVG Diagram Rendering */}
               {svgCode && (
-                <div className="mb-5 p-4 bg-blue-50/50 dark:bg-slate-900/80 rounded-2xl border border-dashed border-blue-200 dark:border-slate-700 flex justify-center overflow-x-auto dark:[&_svg]:bg-white/90 dark:[&_svg]:p-2 dark:[&_svg]:rounded-xl">
+                <div className="mb-6 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex justify-center overflow-x-auto">
                   <div dangerouslySetInnerHTML={{ __html: svgCode }} />
                 </div>
               )}
 
               {/* KaTeX Math & ReactMarkdown Formatting */}
-              <div className="prose prose-blue dark:prose-invert max-w-none leading-relaxed text-slate-700 dark:text-slate-200 font-medium text-sm sm:text-base">
+              <div className="prose prose-indigo max-w-none leading-relaxed text-slate-700 font-medium text-sm sm:text-base">
                 <ReactMarkdown
                   remarkPlugins={[remarkMath]}
                   rehypePlugins={[rehypeKatex]}
@@ -230,7 +257,7 @@ export default function ScannerPage() {
       <UpgradeModal 
         isOpen={showUpgradeModal} 
         onClose={() => setShowUpgradeModal(false)} 
-        userEmail={userEmail || "student@gmail.com"}
+        userEmail={userEmail}
       />
 
       <canvas ref={canvasRef} className="hidden" />

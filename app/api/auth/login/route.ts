@@ -26,15 +26,23 @@ export async function POST(req: Request) {
 
     const userData = userSnap.data();
 
-    // 2. Password එක පරීක්ෂා කිරීම
-    if (userData?.password !== password) {
+    // 2. Google මඟින් Register වූ කෙනෙක් නම් Password එකක් නොතිබෙන්න පුළුවන්
+    if (!userData?.password) {
       return NextResponse.json(
-        { success: false, message: "ඇතුළත් කළ මුරපදය වැරදියි!" },
+        { success: false, message: "මෙම ගිණුම Google Login හරහා සාදා ඇත. කරුණාකර 'Google මඟින් ඇතුළු වන්න' භාවිතා කරන්න." },
         { status: 400 }
       );
     }
 
-    // 3. Email එක Verify කරලා නැත්නම් (Flag එකක් සහිතව යැවීම)
+    // 3. Password එක පරීක්ෂා කිරීම
+    if (userData.password !== password) {
+      return NextResponse.json(
+        { success: false, message: "ඇතුළත් කළ මුරපදය වැරදියයි!" },
+        { status: 400 }
+      );
+    }
+
+    // 4. Email එක Verify කරලා නැත්නම්
     if (!userData?.isVerified) {
       return NextResponse.json(
         { 
@@ -46,7 +54,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Login සාර්ථක නම් User Data ලබා දීම
+    // 5. Login සාර්ථක නම් User Data ලබා දීම
     return NextResponse.json({
       success: true,
       message: "සාර්ථකව ඇතුළු විය!",

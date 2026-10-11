@@ -78,7 +78,7 @@ export default function PaperPage() {
   const [userEmail, setUserEmail] = useState<string>("");
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
 
-  // Logged-in Check
+  // Logged-in Check & PayHere Return Status Handler
   useEffect(() => {
     const email = localStorage.getItem("userEmail");
 
@@ -88,6 +88,31 @@ export default function PaperPage() {
     }
 
     setUserEmail(email);
+
+    // PayHere ගෙවීම සාර්ථක වී ආපහු පැමිණි විට ඩේටාබේස් එක Pro කිරීම
+    const queryParams = new URLSearchParams(window.location.search);
+    const status = queryParams.get("status");
+    const returnEmail = queryParams.get("email") || email;
+
+    if (status === "success" && returnEmail) {
+      fetch("/api/upgrade-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: returnEmail }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            alert("🎉 ගෙවීම සාර්ථකයි! ඔබගේ ගිණුම Pro Package එකට සාර්ථකව මාරු විය.");
+            window.history.replaceState({}, document.title, window.location.pathname);
+            window.location.reload();
+          }
+        })
+        .catch((err) => console.error("Auto Upgrade Error:", err));
+    } else if (status === "cancel") {
+      alert("❌ ගෙවීම අවලංගු කරන ලදී.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, [router]);
 
   // Helper function to calculate total and earned marks

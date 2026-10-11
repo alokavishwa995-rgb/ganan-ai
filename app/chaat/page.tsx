@@ -42,7 +42,7 @@ export default function ChatPage() {
         text: "ආයුබෝවන් යාලුවා! 🌟 මම ඔයාගේ 'ගණිත මිතුරා'. ගණිතය කියන්නේ ගේම් එකක් වගේ හරිම විනෝදජනක දෙයක්. ඔයාට අමාරු ඕනෑම තැනක් මගෙන් අහන්න. අපි එකතුවෙලා ලේසියෙන්ම විසඳමු! 💪",
       });
     }
-  }, [router, isLoaded]);
+  }, [router, isLoaded, messages.length, addMessage]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });

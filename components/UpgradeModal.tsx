@@ -1,19 +1,34 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface UpgradeModalProps {
   isOpen: boolean;
   onClose: () => void;
   userEmail: string;
+  userName?: string;
+  userPhone?: string;
 }
 
-export default function UpgradeModal({ isOpen, onClose, userEmail }: UpgradeModalProps) {
+export default function UpgradeModal({ 
+  isOpen, 
+  onClose, 
+  userEmail, 
+  userName = "Student", 
+  userPhone = "0771234567" 
+}: UpgradeModalProps) {
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   if (!isOpen) return null;
 
   const handlePayHereSubmit = async () => {
+    if (!userEmail) {
+      alert("කරුණාකර ප්‍රථමයෙන් ගිණුමට ඇතුළු වන්න (Login වන්න).");
+      return;
+    }
+
     setLoading(true);
 
     const orderId = `Order_${Date.now()}`;
@@ -21,50 +36,50 @@ export default function UpgradeModal({ isOpen, onClose, userEmail }: UpgradeModa
     const currency = "LKR";
 
     try {
-      // 1. Backend API එකෙන් Hash එක සහ Merchant ID ලබා ගැනීම
+      // 1. Backend API එකෙන් Hash එක ලබා ගැනීම (api/payhere-hash හරහා)
       const res = await fetch("/api/payhere-hash", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, amount, currency }),
+        body: JSON.stringify({ order_id: orderId, amount, currency }),
       });
 
       if (!res.ok) {
         throw new Error("PayHere Hash ජනනය කරගැනීමට නොහැකි විය.");
       }
 
-      const { hash, merchantId, formattedAmount } = await res.json();
+      const { hash, merchant_id } = await res.json();
 
       // App URL එක ලබා ගැනීම (Production live domain හෝ local origin)
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
 
-      // .env හි NEXT_PUBLIC_PAYHERE_MODE='live' නම් Live URL එකටත් නැතිනම් Sandbox එකටත් යොමු කරයි
+      // Sandbox හෝ Live mode තෝරා ගැනීම
       const payhereActionUrl = process.env.NEXT_PUBLIC_PAYHERE_MODE === "live"
         ? "https://www.payhere.lk/pay/checkout"
         : "https://sandbox.payhere.lk/pay/checkout";
 
-      // 2. Dynamic Form එකක් සාදා PayHere Checkout වෙත Submit කිරීම
+      // 2. Dynamic Form එකක් සාදා PayHere Checkout වෙත යැවීම
       const form = document.createElement("form");
       form.method = "POST";
       form.action = payhereActionUrl;
 
       const params: Record<string, string> = {
-        merchant_id: merchantId,
-        return_url: `${appUrl}/paper?status=success`,
+        merchant_id: merchant_id,
+        return_url: `${appUrl}/paper?status=success&email=${encodeURIComponent(userEmail)}`,
         cancel_url: `${appUrl}/paper?status=cancel`,
         notify_url: `${appUrl}/api/payhere/notify`, // 👈 Webhook route එක
         order_id: orderId,
         items: "GMath Mithura Pro - මාසික සාමාජිකත්වය (රු. 300)",
         currency: currency,
-        amount: formattedAmount,
+        amount: amount.toFixed(2),
         hash: hash,
-        first_name: "Student",
-        last_name: "User",
-        email: userEmail || "student@gmail.com",
-        phone: "0771234567",
-        address: "No 1, Main Street",
+        first_name: userName.split(" ")[0] || "Student",
+        last_name: userName.split(" ")[1] || "User",
+        email: userEmail, // 👈 ඩමි ඊමේල් වෙනුවට ඇත්ත User Email එක
+        phone: userPhone,
+        address: "Sri Lanka",
         city: "Colombo",
         country: "Sri Lanka",
-        custom_1: userEmail, // 👈 Webhook එකේදී Firestore හි User ව සොයාගැනීමට Email එක යැවීම
+        custom_1: userEmail, // 👈 Webhook එකේදී User ව හඳුනාගැනීමට
       };
 
       for (const key in params) {
@@ -80,7 +95,6 @@ export default function UpgradeModal({ isOpen, onClose, userEmail }: UpgradeModa
     } catch (err) {
       console.error("Payment Error:", err);
       alert("Payment එක ආරම්භ කිරීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න.");
-    } finally {
       setLoading(false);
     }
   };
