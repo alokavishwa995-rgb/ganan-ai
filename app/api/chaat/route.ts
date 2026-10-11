@@ -27,12 +27,11 @@ export async function GET(req: Request) {
       .limit(40)
       .get();
 
-    const messages = snapshot.docs.map((doc) => ({
-      role: doc.data().role,
-      content: doc.data().content,
-      svgDiagram: doc.data().svgDiagram || "",
-    }));
-
+    const messages = snapshot.docs.map((doc: any) => ({
+  role: doc.data().role,
+  content: doc.data().content,
+  svgDiagram: doc.data().svgDiagram || "",
+}));
     return NextResponse.json({ success: true, messages });
   } catch (err) {
     console.error("Fetch History Error:", err);
