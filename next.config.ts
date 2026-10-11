@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["firebase-admin"],
+  outputFileTracingIncludes: {
+    "/api/**/*": ["./node_modules/firebase-admin/**/*"],
+  },
 };
 
 export default nextConfig;
