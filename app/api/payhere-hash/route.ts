@@ -1,41 +1,36 @@
-import { NextResponse } from "next/server";
-import crypto from "crypto";
+import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { orderId, amount, currency } = await req.json();
+    const { order_id, amount, currency } = await request.json();
 
-    // 🛑 .trim() භාවිතා කර අනවශ්‍ය Spaces ඉවත් කිරීම (අනිවාර්යයි)
-    const merchantId = (process.env.NEXT_PUBLIC_PAYHERE_MERCHANT_ID || "").trim();
-    const merchantSecret = (process.env.PAYHERE_MERCHANT_SECRET || "").trim();
+    const merchant_id = process.env.NEXT_PUBLIC_PAYHERE_MERCHANT_ID || '';
+    const merchant_secret = process.env.PAYHERE_MERCHANT_SECRET || '';
 
-    if (!merchantId || !merchantSecret) {
-      console.error("PayHere Merchant ID or Secret is missing in environment variables.");
-      return NextResponse.json(
-        { error: "PayHere configuration missing" },
-        { status: 500 }
-      );
-    }
-
-    const formattedAmount = Number(amount).toFixed(2);
-
+    // MD5 Signature Formula
     const hashedSecret = crypto
-      .createHash("md5")
-      .update(merchantSecret)
-      .digest("hex")
+      .createHash('md5')
+      .update(merchant_secret)
+      .digest('hex')
       .toUpperCase();
 
-    const hashString = merchantId + orderId + formattedAmount + currency + hashedSecret;
+    const amountFormatted = Number(amount).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      useGrouping: false,
+    });
 
-    const hash = crypto
-      .createHash("md5")
-      .update(hashString)
-      .digest("hex")
+    const dataToHash = merchant_id + order_id + amountFormatted + currency + hashedSecret;
+    
+    const md5Sig = crypto
+      .createHash('md5')
+      .update(dataToHash)
+      .digest('hex')
       .toUpperCase();
 
-    return NextResponse.json({ hash, merchantId, formattedAmount });
+    return NextResponse.json({ hash: md5Sig, merchant_id });
   } catch (error) {
-    console.error("Hash generation error:", error);
-    return NextResponse.json({ error: "Hash generation failed" }, { status: 500 });
+    console.error('Error generating PayHere hash:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
