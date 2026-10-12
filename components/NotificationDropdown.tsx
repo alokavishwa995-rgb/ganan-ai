@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { db } from '@/lib/firebase'; // ඔයාගේ firebase config එක
+import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 interface NotificationItem {
@@ -21,6 +21,13 @@ export default function NotificationDropdown({ userEmail }: { userEmail: string 
 
   // Firestore එකෙන් Real-time Notifications Fetch කිරීම
   useEffect(() => {
+    // යුසර් කෙනෙක් ලොග් වෙලා නැත්නම් ඩේටා ෆෙච් කරන්න යන්න එපා (Permission Error එක වළක්වයි)
+    if (!userEmail) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
+
     const q = query(
       collection(db, 'notifications'),
       orderBy('createdAt', 'desc')
@@ -40,7 +47,7 @@ export default function NotificationDropdown({ userEmail }: { userEmail: string 
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [userEmail]);
 
   // Dropdown එකෙන් පිටත Click කළ විට Close වීම
   useEffect(() => {
@@ -54,9 +61,9 @@ export default function NotificationDropdown({ userEmail }: { userEmail: string 
   }, []);
 
   // මේ User කියවා නැති Notification ගණන
-  const unreadCount = notifications.filter(
+  const unreadCount = userEmail ? notifications.filter(
     (n) => !n.readBy || !n.readBy.includes(userEmail)
-  ).length;
+  ).length : 0;
 
   // Notification එක Read එකක් ලෙස Database එකට Mark කිරීම
   const markAsRead = async (id: string) => {
@@ -115,7 +122,7 @@ export default function NotificationDropdown({ userEmail }: { userEmail: string 
               </div>
             ) : notifications.length > 0 ? (
               notifications.map((item) => {
-                const isRead = item.readBy?.includes(userEmail);
+                const isRead = userEmail ? item.readBy?.includes(userEmail) : false;
                 return (
                   <div
                     key={item.id}

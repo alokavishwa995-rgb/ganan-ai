@@ -6,22 +6,34 @@ import { getAuth } from "firebase-admin/auth";
 let adminApp;
 
 if (!getApps().length) {
-  let rawKey = process.env.FIREBASE_PRIVATE_KEY || "";
-  
-  // 💡 වැදගත්: Vercel එකේ හෝ Local එකේ Quotes (") අත්වැරදීමකින් එකතු වී තිබේ නම් ඒවා ඉවත් කරයි
-  rawKey = rawKey.replace(/^["']|["']$/g, "");
-  
-  // 💡 \n අකුරු ලෙස ඇති ඒවා සැබෑ නව පෙළ (Newlines) බවට පත් කරයි
-  const privateKey = rawKey.replace(/\\n/g, "\n");
+  try {
+    let serviceAccount;
 
-  if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && privateKey) {
-    adminApp = initializeApp({
-      credential: cert({
+    // විකල්ප 1: Base64 වලින් දාලා තියෙනවා නම්
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+      const decodedJson = Buffer.from(
+        process.env.FIREBASE_SERVICE_ACCOUNT_BASE64,
+        "base64"
+      ).toString("utf8");
+      serviceAccount = JSON.parse(decodedJson);
+    } 
+    // විකල්ප 2: වෙනත් ක්‍රමයක් නම් (ProjectId, ClientEmail වෙන වෙනම)
+    else {
+      let rawKey = process.env.FIREBASE_PRIVATE_KEY || "";
+      rawKey = rawKey.trim().replace(/^["']|["']$/g, "").replace(/\\n/g, "\n");
+
+      serviceAccount = {
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: privateKey,
-      }),
+        privateKey: rawKey,
+      };
+    }
+
+    adminApp = initializeApp({
+      credential: cert(serviceAccount),
     });
+  } catch (error) {
+    console.error("❌ Firebase Admin Initialization Error:", error);
   }
 } else {
   adminApp = getApps()[0];
