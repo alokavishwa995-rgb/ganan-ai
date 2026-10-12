@@ -6,11 +6,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password } = await req.json();
+    const { name, email, password, isGoogleAuth, uid } = await req.json();
 
-    if (!email || !password || !name) {
+    if (!email || !name) {
       return NextResponse.json(
-        { success: false, message: "සියලුම තොරතුරු ඇතුළත් කරන්න." },
+        { success: false, message: "නම සහ Email එක අත්‍යවශ්‍ය වේ." },
         { status: 400 }
       );
     }
@@ -20,7 +20,48 @@ export async function POST(req: Request) {
     const userRef = adminDb.collection("users").doc(cleanEmail);
     const userSnap = await userRef.get();
 
-    // 1. දැනටමත් Verified වූ User කෙනෙක් සිටීදැයි පරීක්ෂා කිරීම
+    const today = new Date().toISOString().split("T")[0];
+    const currentMonth = new Date().toISOString().substring(0, 7);
+
+    // 1. Google Authentication හරහා එන අය සඳහා (Password අත්‍යවශ්‍ය නොවේ)
+    if (isGoogleAuth) {
+      if (!userSnap.exists) {
+        await userRef.set({
+          name: cleanName,
+          email: cleanEmail,
+          uid: uid || null,
+          isVerified: true, // Google හරහා එන නිසා Verified ලෙස සලකයි
+          plan: "free",
+          isPaid: false,
+          authProvider: "google",
+          createdAt: new Date().toISOString(),
+          dailyUsage: {
+            askQuestions: 0,
+            photoScan: 0,
+            lastResetDate: today,
+          },
+          monthlyUsage: {
+            paperGen: 0,
+            lastResetMonth: currentMonth,
+          },
+        }, { merge: true });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Google හරහා සාර්ථකව ඇතුළු විය.",
+      });
+    }
+
+    // 2. සාමාන්‍ය Email/Password + OTP ලියාපදිංචිය
+    if (!password) {
+      return NextResponse.json(
+        { success: false, message: "මුරපදයක් (Password) ඇතුළත් කරන්න." },
+        { status: 400 }
+      );
+    }
+
+    // දැනටමත් Verified වූ User කෙනෙක් සිටීදැයි පරීක්ෂා කිරීම
     if (userSnap.exists) {
       const existingData = userSnap.data();
       if (existingData?.isVerified) {
@@ -31,13 +72,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. ඉලක්කම් 6ක OTP එකක් generate කිරීම
+    // ඉලක්කම් 6ක OTP එකක් generate කිරීම
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 10 * 60 * 1000; // විනාඩි 10ක් වලංගුයි
-    const today = new Date().toISOString().split("T")[0];
-    const currentMonth = new Date().toISOString().substring(0, 7);
+    const expiresAt = Date.now() + 10 * 60 * 1000; // විනාඩි 10යි
 
-    // 3. Resend හරහා Custom Domain එකෙන් OTP Email එක යැවීම (Spam නොවීමට)
+    // Resend හරහා OTP Email යැවීම
     try {
       await resend.emails.send({
         from: "ගණිත මිතුරා <noreply@ganan.com.lk>",
@@ -60,13 +99,13 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { 
           success: false, 
-          message: "Email එක යැවීමට නොහැකි විය. කරුණාකර නැවත උත්සාහ කරන්න." 
+          message: "Email එක යැවීමට නොහැකි විය. RESEND_API_KEY පරීක්ෂා කරන්න." 
         },
         { status: 400 }
       );
     }
 
-    // 4. Firestore හි User Data සහ OTP සේව් කිරීම
+    // Firestore හි User Data සහ OTP සේව් කිරීම
     await userRef.set({
       name: cleanName,
       email: cleanEmail,
@@ -76,6 +115,7 @@ export async function POST(req: Request) {
       otpExpiresAt: expiresAt,
       plan: "free",
       isPaid: false,
+      authProvider: "credentials",
       createdAt: new Date().toISOString(),
       dailyUsage: {
         askQuestions: 0,
@@ -92,8 +132,9 @@ export async function POST(req: Request) {
       success: true,
       message: "Verification OTP එක Email එකට යවන ලදී.",
     });
+
   } catch (error: any) {
-    console.error("Register API Error:", error);
+    console.error("REGISTER API ERROR:", error);
     return NextResponse.json(
       { success: false, message: error.message || "ලියාපදිංචි වීමේ දෝෂයක් සිදුවිය." },
       { status: 500 }

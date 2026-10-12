@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { 
-  signInWithPopup, 
+  signInWithRedirect, 
+  getRedirectResult, 
   signOut, 
   onAuthStateChanged, 
   User 
@@ -24,6 +25,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 1. Google Redirect එකෙන් නැවත පැමිණෙන විට Result එක ලබා ගැනීම
+    getRedirectResult(auth).catch((error) => {
+      console.error("Google Redirect Error: ", error);
+    });
+
+    // 2. Auth State වෙනස්වීම් පරීක්ෂා කිරීම
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       
@@ -31,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // PayHere Checkout එකට අවශ්‍ය User Email එක LocalStorage හි තැන්පත් කිරීම
         localStorage.setItem("userEmail", currentUser.email);
 
-        // PayHere Webhook එකට සහ DB එකට ගැලපෙන සේ Document ID එක Email එක ලෙස යෙදීම
+        // Firestore හි User Data සේව් කිරීම
         await setDoc(doc(db, "users", currentUser.email), {
           uid: currentUser.uid,
           name: currentUser.displayName,
@@ -49,9 +56,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
+  // 3. Popup වෙනුවට Redirect ක්‍රමය භාවිතය (COOP සහ Mobile Errors මඟහරවා ගැනීමට)
   const loginWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      await signInWithRedirect(auth, googleProvider);
     } catch (error) {
       console.error("Login failed: ", error);
     }
