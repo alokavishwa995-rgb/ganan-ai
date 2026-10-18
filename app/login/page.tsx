@@ -36,31 +36,62 @@ export default function LoginPage() {
     return parts.charAt(0).toUpperCase() + parts.slice(1);
   };
 
-  // 🔄 User Log වී ඇත්දැයි පරීක්ෂා කිරීම (Firebase Auth + LocalStorage)
+  // 🔄 User Log වී ඇත්දැයි පරීක්ෂා කිරීම (Database එකෙන් අලුත්ම තොරතුරු ගැනීම)
   useEffect(() => {
-    const localEmail = localStorage.getItem("userEmail");
-    const localName = localStorage.getItem("userName");
+    let isMounted = true;
 
-    if (localEmail) {
-      setUserProfile({
-        email: localEmail,
-        name: localName || displayNameFromEmail(localEmail),
-        plan: "free",
-      });
-      setCheckingAuth(false);
-    }
+    const loadUserFromDB = async () => {
+      const localEmail = localStorage.getItem("userEmail");
+      const localName = localStorage.getItem("userName");
 
+      if (localEmail) {
+        // තාවකාලිකව Local Storage එකෙන් පෙන්වීම (UI එක ඉක්මනින් Load වීමට)
+        setUserProfile({
+          email: localEmail,
+          name: localName || displayNameFromEmail(localEmail),
+          plan: "free",
+          isPaid: false
+        });
+
+        // 🎯 කෙළින්ම Database එකෙන් අලුත්ම Plan එක සහ තත්ත්වය ගැනීම
+        try {
+          const userRef = doc(db, "users", localEmail.toLowerCase());
+          const userSnap = await getDoc(userRef);
+
+          if (userSnap.exists() && isMounted) {
+            const dbData = userSnap.data();
+            setUserProfile({
+              email: localEmail,
+              name: dbData.name || localName || displayNameFromEmail(localEmail),
+              plan: dbData.plan || "free",
+              isPaid: dbData.isPaid || false,
+            });
+          }
+        } catch (err) {
+          console.error("Firestore DB fetch error:", err);
+        }
+        if (isMounted) setCheckingAuth(false);
+      } else {
+        if (isMounted) setCheckingAuth(false);
+      }
+    };
+
+    loadUserFromDB();
+
+    // Firebase Google Login සඳහා Listener
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser && currentUser.email) {
-        let uName = currentUser.displayName || currentUser.email.split("@")[0];
+        const uEmail = currentUser.email.toLowerCase();
+        let uName = currentUser.displayName || uEmail.split("@")[0];
         let userData: any = {
-          email: currentUser.email,
+          email: uEmail,
           name: uName,
           plan: "free",
+          isPaid: false
         };
 
         try {
-          const userRef = doc(db, "users", currentUser.email.toLowerCase());
+          const userRef = doc(db, "users", uEmail);
           const userSnap = await getDoc(userRef);
 
           if (userSnap.exists()) {
@@ -68,20 +99,25 @@ export default function LoginPage() {
             if (userData.name) uName = userData.name;
           }
         } catch (err) {
-          console.warn("Firestore fetch error in onAuthStateChanged (Fallback to Auth profile):", err);
+          console.warn("Firestore fetch error in onAuthStateChanged:", err);
         }
 
-        localStorage.setItem("userEmail", currentUser.email);
+        localStorage.setItem("userEmail", uEmail);
         localStorage.setItem("userName", uName);
 
-        setUserProfile(userData);
+        if (isMounted) {
+          setUserProfile(userData);
+          setCheckingAuth(false);
+        }
       } else if (!localStorage.getItem("userEmail")) {
-        setUserProfile(null);
+        if (isMounted) setUserProfile(null);
       }
-      setCheckingAuth(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   // 🎯 DB Profile එක සෑදීම (Google Login සඳහා)
@@ -139,6 +175,7 @@ export default function LoginPage() {
           email: userEmail,
           name: googleName,
           plan: "free",
+          isPaid: false
         });
         router.push("/");
       }
@@ -165,7 +202,6 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
-        // 🎯 1. Sign Up API Call
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -178,7 +214,6 @@ export default function LoginPage() {
         setSuccessMsg("Verification OTP කේතය ඔබගේ Email එකට යවන ලදී. කරුණාකර එය ඇතුළත් කරන්න.");
         setShowOtpStep(true);
       } else {
-        // 🎯 2. Sign In API Call
         const res = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -201,7 +236,8 @@ export default function LoginPage() {
         setUserProfile({
           email: cleanEmail,
           name: uName,
-          plan: "free",
+          plan: data.user?.plan || "free",
+          isPaid: data.user?.isPaid || false
         });
 
         setSuccessMsg("සාර්ථකව ඇතුළු විය!");
@@ -216,7 +252,7 @@ export default function LoginPage() {
     }
   };
 
-  // 🔑 3. OTP Verify කිරීමේ Handler
+  // 🔑 OTP Verify කිරීමේ Handler
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
@@ -243,6 +279,7 @@ export default function LoginPage() {
         email: cleanEmail,
         name: uName,
         plan: "free",
+        isPaid: false
       });
 
       setSuccessMsg("ගිණුම සාර්ථකව තහවුරු විය!");
