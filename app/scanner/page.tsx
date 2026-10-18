@@ -10,7 +10,6 @@ import "katex/dist/katex.min.css";
 import UpgradeModal from "@/components/UpgradeModal";
 import { useLocalChat } from "@/hooks/useLocalChat";
 
-// AI එකෙන් එන Text එක සහ SVG රූප සටහන වෙන් කරගන්නා Helper Function එක
 const parseAIResponse = (fullText: string) => {
   const svgRegex = /<svg[\s\S]*?<\/svg>/;
   const match = fullText.match(svgRegex);
@@ -26,6 +25,7 @@ const parseAIResponse = (fullText: string) => {
 
 export default function ScannerPage() {
   const router = useRouter();
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
@@ -33,20 +33,21 @@ export default function ScannerPage() {
   const [svgCode, setSvgCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 🎯 Local Storage Cache Hook එක (Scanner History එක සඳහා)
   const { messages, addMessage, clearHistory } = useLocalChat("gmath_scanner_history");
 
-  // User Email එක සහ Limit Modal එක සඳහා States
-  const [userEmail, setUserEmail] = useState<string>("");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    // LocalStorage එකෙන් Logged-in User Email එක ලබා ගැනීම
+    setIsClient(true);
     const email = localStorage.getItem("userEmail");
+    
     if (!email) {
-      router.push("/login");
+      router.push("/");
       return;
     }
+    
     setUserEmail(email);
 
     let streamInstance: MediaStream | null = null;
@@ -65,7 +66,6 @@ export default function ScannerPage() {
 
     startCamera();
 
-    // Page එකෙන් පිටව යද්දී Camera Stream එක Stop කිරීම
     return () => {
       if (streamInstance) {
         streamInstance.getTracks().forEach((track) => track.stop());
@@ -85,7 +85,6 @@ export default function ScannerPage() {
     }
   };
 
-  // ගැලරියෙන් (Gallery) ෆොටෝ එකක් සිලෙක්ට් කළාම ක්‍රියාත්මක වන Function එක
   const handleGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -98,7 +97,7 @@ export default function ScannerPage() {
   };
 
   const sendToAI = async () => {
-    if (!imgSrc) return;
+    if (!imgSrc || !userEmail) return;
     setLoading(true);
     setSvgCode(null);
     try {
@@ -108,7 +107,6 @@ export default function ScannerPage() {
         headers: { "Content-Type": "application/json" },
       });
 
-      // 🛑 Photo Scan Limit එක ඉවර නම් Modal එක Open කර පෙන්වීම
       if (res.status === 429) {
         setShowUpgradeModal(true);
         return;
@@ -116,14 +114,12 @@ export default function ScannerPage() {
 
       const data = await res.json();
       
-      // Backend එකෙන් දත්ත ආවම SVG සහ Text වෙන් කරගන්නවා
       const rawText = data.text || data.solution;
       if (rawText) {
         const parsed = parseAIResponse(rawText);
         setSolution(parsed.text);
         setSvgCode(parsed.svg);
 
-        // 🎯 Scan විසඳුම Phone එකේ Local Storage එකට Save කිරීම
         addMessage({
           sender: "ai",
           text: parsed.text,
@@ -142,16 +138,18 @@ export default function ScannerPage() {
     }
   };
 
+  if (!isClient || !userEmail) {
+    return <div className="h-screen bg-slate-900"></div>;
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-hidden">
-      {/* Header (Light Glassmorphism) */}
       <div className="p-4 px-6 flex justify-between items-center bg-white/80 backdrop-blur-md border-b border-indigo-100 fixed top-0 w-full z-20 shadow-sm">
         <Link href="/" className="text-xl text-indigo-600 font-bold hover:opacity-80 transition flex items-center gap-1">
           <span>🔙</span> මුල් පිටුවට
         </Link>
         <h2 className="text-base font-extrabold text-indigo-900">ප්‍රශ්නය Scan කරන්න 📷</h2>
         
-        {/* Previous Scans Clear Button */}
         {messages.length > 0 ? (
           <button 
             onClick={clearHistory}
@@ -164,7 +162,6 @@ export default function ScannerPage() {
         )}
       </div>
 
-      {/* Camera Viewport (Phone Screen එකේ ප්‍රමාණයට Fit වන පරිදි) */}
       <div className="flex-1 flex items-center justify-center relative bg-slate-900 mt-[60px] h-[calc(100vh-160px)]">
         {!imgSrc ? (
           <>
@@ -183,7 +180,6 @@ export default function ScannerPage() {
         )}
       </div>
 
-      {/* Control Actions Bottom Bar (Light Theme) */}
       <div className="p-5 px-6 flex flex-col items-center bg-white border-t border-indigo-50 z-10 shadow-lg">
         {!imgSrc ? (
           <div className="flex items-center justify-between w-full max-w-sm">
@@ -217,7 +213,6 @@ export default function ScannerPage() {
         )}
       </div>
 
-      {/* විසඳුම පෙන්වන Modal එක (Light Theme + KaTeX Math) */}
       {solution && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 p-4 sm:p-6 overflow-y-auto flex justify-center items-start pt-10">
           <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl border border-indigo-50 overflow-hidden my-auto">
@@ -232,14 +227,12 @@ export default function ScannerPage() {
             </div>
             
             <div className="p-6 sm:p-8 max-h-[80vh] overflow-y-auto">
-              {/* SVG Diagram Rendering */}
               {svgCode && (
                 <div className="mb-6 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex justify-center overflow-x-auto">
                   <div dangerouslySetInnerHTML={{ __html: svgCode }} />
                 </div>
               )}
 
-              {/* KaTeX Math & ReactMarkdown Formatting */}
               <div className="prose prose-indigo max-w-none leading-relaxed text-slate-700 font-medium text-sm sm:text-base">
                 <ReactMarkdown
                   remarkPlugins={[remarkMath]}
@@ -253,7 +246,6 @@ export default function ScannerPage() {
         </div>
       )}
 
-      {/* Upgrade Modal Component */}
       <UpgradeModal 
         isOpen={showUpgradeModal} 
         onClose={() => setShowUpgradeModal(false)} 

@@ -12,31 +12,28 @@ import { useLocalChat } from "@/hooks/useLocalChat";
 
 export default function ChatPage() {
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState<string>("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [isClient, setIsClient] = useState(false);
 
-  // 🎯 Local Storage Cache Hook එක (Phone එකේ Save කරගැනීම සඳහා)
   const { messages, addMessage, clearHistory, isLoaded } = useLocalChat("gmath_chat_history");
-
-  // Daily Limit එක පිරුණු විට පෙන්වන Modal එක
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Logged-in User Check & Default Welcome Message එක එකතු කිරීම
+  // 1. Firebase Auth වෙනුවට LocalStorage පරීක්ෂා කිරීම
   useEffect(() => {
+    setIsClient(true);
     const email = localStorage.getItem("userEmail");
-
+    
     if (!email) {
-      router.push("/login");
+      router.push("/");
       return;
     }
-
+    
     setUserEmail(email);
 
-    // පළමු වතාවට එන විට Welcome Message එක Local Storage එකට එකතු කිරීම
-    if (isLoaded && messages.length === 0) {
+    if (email && isLoaded && messages.length === 0) {
       addMessage({
         sender: "ai",
         text: "ආයුබෝවන් යාලුවා! 🌟 මම ඔයාගේ 'ගණිත මිතුරා'. ගණිතය කියන්නේ ගේම් එකක් වගේ හරිම විනෝදජනක දෙයක්. ඔයාට අමාරු ඕනෑම තැනක් මගෙන් අහන්න. අපි එකතුවෙලා ලේසියෙන්ම විසඳමු! 💪",
@@ -48,7 +45,6 @@ export default function ChatPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  // SVG රූපසටහන් වෙන් කර ගැනීමේ Helper Function එක
   const extractSvgAndContent = (rawText: string) => {
     const svgMatch = rawText.match(/\[\[SVG:\s*(<svg[\s\S]*?<\/svg>)\s*\]\]/);
     const svgDiagram = svgMatch ? svgMatch[1] : "";
@@ -56,12 +52,10 @@ export default function ChatPage() {
     return { cleanContent, svgDiagram };
   };
 
-  // Chat Message එක යැවීම සහ Local Storage එකේ Save කිරීම
   const handleSend = async (textToSend?: string) => {
     const query = textToSend || input;
-    if (!query.trim() || loading) return;
+    if (!query.trim() || loading || !userEmail) return;
 
-    // 1. User Message එක කෙළින්ම Phone එකේ Local Storage එකේ Save කිරීම
     addMessage({
       sender: "user",
       text: query,
@@ -71,7 +65,6 @@ export default function ChatPage() {
     setLoading(true);
 
     try {
-      // Backend API එකට යැවීමට Message History එක සකස් කිරීම
       const formattedMessages = messages.map((m) => ({
         role: m.sender === "user" ? "user" : "assistant",
         content: m.text,
@@ -84,7 +77,6 @@ export default function ChatPage() {
         body: JSON.stringify({ messages: formattedMessages, userEmail }),
       });
 
-      // 🛑 Limit එක පිරී ඇත්නම් Modal එක පෙන්වීම
       if (res.status === 429) {
         setShowUpgradeModal(true);
         setLoading(false);
@@ -108,7 +100,6 @@ export default function ChatPage() {
 
       const { cleanContent, svgDiagram } = extractSvgAndContent(accumulatedText);
 
-      // 2. AI උත්තරය සම්පූර්ණයෙන් ලැබුණු පසු Phone එකේ Local Storage එකට Save කිරීම
       addMessage({
         sender: "ai",
         text: cleanContent,
@@ -126,6 +117,11 @@ export default function ChatPage() {
     }
   };
 
+  // 2. Load වනතුරු හිස් තිරයක් පෙන්වීම (Hydration Error වළක්වයි)
+  if (!isClient || !userEmail) {
+    return <div className="h-screen bg-slate-50"></div>;
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-indigo-50 font-sans relative">
       
@@ -141,14 +137,11 @@ export default function ChatPage() {
               ගණිත මිතුරා
             </h1>
           </div>
-          {userEmail && (
-            <p className="text-[11px] font-semibold text-indigo-500 mt-0.5">
-              👤 {userEmail}
-            </p>
-          )}
+          <p className="text-[11px] font-semibold text-indigo-500 mt-0.5">
+            👤 {userEmail}
+          </p>
         </div>
         
-        {/* History මකන Button එක */}
         {messages.length > 0 ? (
           <button
             onClick={clearHistory}
@@ -184,7 +177,6 @@ export default function ChatPage() {
                     : "bg-white text-slate-800 rounded-3xl rounded-bl-sm border border-indigo-50"
                 }`}
               >
-                {/* ReactMarkdown + KaTeX Math Formatting */}
                 <div className="prose prose-slate max-w-none font-medium opacity-90">
                   <ReactMarkdown
                     remarkPlugins={[remarkMath]}
@@ -194,7 +186,6 @@ export default function ChatPage() {
                   </ReactMarkdown>
                 </div>
 
-                {/* SVG රූපසටහන තිබේ නම් පෙන්වීම */}
                 {msg.imageUrl && msg.imageUrl.startsWith("data:image/svg+xml") && (
                   <div className="mt-4 p-4 bg-slate-50/50 rounded-2xl border border-indigo-100 flex justify-center items-center shadow-inner overflow-hidden">
                     <img src={msg.imageUrl} alt="Math Diagram" className="max-w-full h-auto" />
@@ -205,7 +196,6 @@ export default function ChatPage() {
           ))
         )}
 
-        {/* Loading Indicator */}
         {loading && (
           <div className="flex justify-start items-end gap-2">
             <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-lg shadow-sm mb-1">
@@ -250,7 +240,6 @@ export default function ChatPage() {
         </p>
       </div>
 
-      {/* Upgrade Modal */}
       <UpgradeModal 
         isOpen={showUpgradeModal} 
         onClose={() => setShowUpgradeModal(false)} 

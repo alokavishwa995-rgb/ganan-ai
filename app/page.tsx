@@ -8,16 +8,16 @@ import NotificationDropdown from '@/components/NotificationDropdown';
 import { useTheme } from '@/context/ThemeContext';
 
 export default function HomePage() {
-  // 1. User ගේ නම සහ Email එක සඳහා States
-  const [userName, setUserName] = useState<string>("මිතුරා"); // Default නම
-  const [userEmail, setUserEmail] = useState<string>("");
-
-  // 2. Global Dark Mode State එක ThemeContext එකෙන් ලබා ගැනීම
-  const { isDarkMode, toggleDarkMode } = useTheme();
   const router = useRouter();
+  const { isDarkMode, toggleDarkMode } = useTheme();
 
-  // Account එකෙන් / LocalStorage එකෙන් නම සහ Email එක ලබා ගැනීම
+  const [userName, setUserName] = useState<string>("මිතුරා"); 
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [isClient, setIsClient] = useState(false);
+
   useEffect(() => {
+    setIsClient(true);
+    // Firebase auth වෙනුවට ආයෙත් localStorage පාවිච්චි කිරීම
     const savedEmail = localStorage.getItem('userEmail');
     const savedName = localStorage.getItem('userName');
 
@@ -28,7 +28,7 @@ export default function HomePage() {
 
     setUserEmail(savedEmail);
     if (savedName) {
-      setUserName(savedName);
+      setUserName(savedName.split(" ")[0]);
     }
   }, [router]);
 
@@ -71,10 +71,15 @@ export default function HomePage() {
     },
   ];
 
+  // Hydration error එකක් නොඑන්න Load වෙනකම් හිස් තිරයක් පෙන්වීම
+  if (!isClient) {
+    return <div className={`min-h-screen ${isDarkMode ? 'bg-slate-900' : 'bg-[#f4f7fe]'}`}></div>;
+  }
+
   return (
     <main className={`min-h-screen pb-28 font-sans transition-colors duration-300 ${isDarkMode ? 'bg-slate-900 text-white' : 'bg-[#f4f7fe] text-black'}`}>
       
-      {/* --- Header කොටස --- */}
+      {/* --- Header --- */}
       <div className={`pt-12 pb-16 px-6 relative rounded-b-[30px] shadow-sm transition-colors duration-300 ${isDarkMode ? 'bg-slate-950' : 'bg-[#151246]'}`}>
         <p className="text-gray-300 text-[14px] mb-1 font-medium">ආයුබෝවන්, {userName}!</p>
         <div className="flex justify-between items-center">
@@ -84,7 +89,6 @@ export default function HomePage() {
           </div>
           
           <div className="flex gap-3 items-center">
-            {/* Global Dark Mode Toggle Button */}
             <button 
               onClick={toggleDarkMode}
               type="button"
@@ -93,24 +97,20 @@ export default function HomePage() {
             >
               <span className="text-lg">{isDarkMode ? "☀️" : "🌙"}</span>
             </button>
-
-            {/* Dynamic Notification Bell Component */}
             <NotificationDropdown userEmail={userEmail} />
           </div>
         </div>
       </div>
 
-      {/* --- Grid Menu එක --- */}
+      {/* --- Grid Menu --- */}
       <div className="p-6 grid grid-cols-2 gap-4 -mt-6 relative z-10">
         {features.map((f, i) => (
           <FeatureCard key={i} {...f} isDarkMode={isDarkMode} />
         ))}
       </div>
 
-      {/* --- Smart Bottom Navigation Bar --- */}
+      {/* --- Bottom Navigation --- */}
       <nav className={`fixed bottom-0 left-0 right-0 shadow-[0_-10px_40px_rgb(0,0,0,0.08)] rounded-t-[30px] px-8 py-5 flex justify-between items-center z-50 transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 border-t border-slate-800' : 'bg-white'}`}>
-        
-        {/* 1. Home */}
         <Link href="/" className="flex flex-col items-center gap-1 cursor-pointer group">
           <div className={`p-2 rounded-2xl ${isDarkMode ? 'bg-blue-900/50' : 'bg-blue-50'} group-hover:scale-110 transition-transform`}>
             <span className="text-blue-600 text-[24px]">🏠</span>
@@ -118,24 +118,20 @@ export default function HomePage() {
           <span className={`text-[10px] font-bold ${isDarkMode ? 'text-blue-400' : 'text-[#151246]'}`}>Home</span>
         </Link>
 
-        {/* 2. Theory */}
         <Link href="/formulas" className="flex flex-col items-center gap-1 cursor-pointer group opacity-60 hover:opacity-100 transition-opacity">
           <span className="text-[24px] grayscale group-hover:grayscale-0 transition-all">📖</span>
           <span className={`text-[10px] font-semibold ${isDarkMode ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-[#151246]'}`}>Theory</span>
         </Link>
 
-        {/* 3. Auto Graph */}
         <Link href="/grader" className="flex flex-col items-center gap-1 cursor-pointer group opacity-60 hover:opacity-100 transition-opacity">
           <span className="text-[24px] grayscale group-hover:grayscale-0 transition-all">📊</span>
           <span className={`text-[10px] font-semibold ${isDarkMode ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-[#151246]'}`}>Auto Graph</span>
         </Link>
 
-        {/* 4. Account */}
         <Link href="/login" className="flex flex-col items-center gap-1 cursor-pointer group opacity-60 hover:opacity-100 transition-opacity">
           <span className="text-[24px] grayscale group-hover:grayscale-0 transition-all">👤</span>
           <span className={`text-[10px] font-semibold ${isDarkMode ? 'text-gray-400 group-hover:text-white' : 'text-gray-500 group-hover:text-[#151246]'}`}>Account</span>
         </Link>
-        
       </nav>
       
     </main>

@@ -11,7 +11,9 @@ export async function POST(request: Request) {
     const payhere_currency = formData.get('payhere_currency')?.toString() || '';
     const status_code = formData.get('status_code')?.toString() || '';
     const md5sig = formData.get('md5sig')?.toString() || '';
-    const email = formData.get('email')?.toString() || ''; // User email from PayHere form
+    
+    // 🎯 PayHere එකෙන් email එක එවන්නේ custom_1 හරහායි.
+    const email = formData.get('custom_1')?.toString() || formData.get('email')?.toString() || ''; 
 
     const merchant_secret = process.env.PAYHERE_MERCHANT_SECRET || '';
 
@@ -41,15 +43,19 @@ export async function POST(request: Request) {
         const cleanEmail = email.trim().toLowerCase();
         const userRef = adminDb.collection('users').doc(cleanEmail);
         
-        // User ගේ Plan එක Pro ලෙස Update කිරීම
-        await userRef.update({
+        // 🎯 update වෙනුවට set({ merge: true }) දැමීම (User doc එක නැතිනම් එය ඉබේම සැකසේ)
+        await userRef.set({
           isPaid: true,
           plan: 'pro',
           updatedAt: new Date().toISOString(),
-        });
+        }, { merge: true });
 
         console.log(`Payment successful and user upgraded: ${cleanEmail}`);
+      } else {
+        console.warn('Payment successful but no email found in custom_1.');
       }
+    } else {
+      console.warn('Payment signature verification failed or status is not 2.');
     }
 
     return NextResponse.json({ success: true }, { status: 200 });

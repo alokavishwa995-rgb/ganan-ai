@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 interface NotificationItem {
   id: string;
@@ -19,34 +17,33 @@ export default function NotificationDropdown({ userEmail }: { userEmail: string 
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Firestore එකෙන් Real-time Notifications Fetch කිරීම
+  // අපේ අලුත් API එක හරහා Notifications Fetch කිරීම
   useEffect(() => {
-    // යුසර් කෙනෙක් ලොග් වෙලා නැත්නම් ඩේටා ෆෙච් කරන්න යන්න එපා (Permission Error එක වළක්වයි)
     if (!userEmail) {
       setNotifications([]);
       setLoading(false);
       return;
     }
 
-    const q = query(
-      collection(db, 'notifications'),
-      orderBy('createdAt', 'desc')
-    );
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications');
+        const data = await res.json();
+        if (data.notifications) {
+          setNotifications(data.notifications);
+        }
+      } catch (error) {
+        console.error("Notifications Fetch Error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedDocs: NotificationItem[] = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as NotificationItem[];
-
-      setNotifications(fetchedDocs);
-      setLoading(false);
-    }, (error) => {
-      console.error("Notifications Fetch Error:", error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    fetchNotifications();
+    
+    // සෑම විනාඩි 2කට වරක් අලුත් notifications තියෙනවද බලන්න
+    const interval = setInterval(fetchNotifications, 120000);
+    return () => clearInterval(interval);
   }, [userEmail]);
 
   // Dropdown එකෙන් පිටත Click කළ විට Close වීම
@@ -68,10 +65,21 @@ export default function NotificationDropdown({ userEmail }: { userEmail: string 
   // Notification එක Read එකක් ලෙස Database එකට Mark කිරීම
   const markAsRead = async (id: string) => {
     if (!userEmail) return;
+
+    // UI එක ඉක්මනින් Update කිරීම
+    setNotifications((prev) => 
+      prev.map(n => 
+        n.id === id 
+          ? { ...n, readBy: [...(n.readBy || []), userEmail] }
+          : n
+      )
+    );
+
     try {
-      const docRef = doc(db, 'notifications', id);
-      await updateDoc(docRef, {
-        readBy: arrayUnion(userEmail),
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notificationId: id, userEmail }),
       });
     } catch (err) {
       console.error("Read status update error:", err);
