@@ -58,10 +58,10 @@ export default function HomePage() {
       link: "/pastpapers" 
     },
     { 
-      title: "Paper Generator", 
-      desc: "ඔබට අවශ්‍ය ප්‍රශ්න පත්‍ර පහසුවෙන් සාදාගන්න", 
-      icon: "🖨️", 
-      link: "/paper" 
+      title: "Math Mafia", 
+      desc: "ගණිත රහස් පරීක්ෂක", 
+      icon: "🕵️‍♂️", 
+      link: "/case" 
     },
     { 
       title: "Auto Graph", 
