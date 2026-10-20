@@ -9,7 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.101",
     "@google/generative-ai": "^0.24.1",
+    "ai": "^7.0.146",
     "firebase": "^12.19.0",
     "firebase-admin": "^14.5.0",
     "katex": "^0.18.7",
@@ -21,7 +23,8 @@
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",
-    "resend": "^6.32.0"
+    "resend": "^6.32.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

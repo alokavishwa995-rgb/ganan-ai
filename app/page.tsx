@@ -58,10 +58,10 @@ export default function HomePage() {
       link: "/pastpapers" 
     },
     { 
-      title: "Math Mafia", 
-      desc: "ගණිත රහස් පරීක්ෂක", 
-      icon: "🕵️‍♂️", 
-      link: "/case" 
+      title: "Daily Quiz", 
+      desc: "දිනපතා අලුත් ප්‍රශ්න 10ක් විසඳා ඔබේ දැනුම මැන බලන්න!", 
+      icon: "🏆", 
+      link: "/daily-challenge" 
     },
     { 
       title: "Auto Graph", 
