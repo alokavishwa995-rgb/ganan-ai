@@ -50,6 +50,16 @@ export default function ScannerPage() {
     
     setUserEmail(email);
 
+    // 🎯 PayHere එකෙන් සාර්ථකව ගෙවීම් කර ආපසු පැමිණි විට පරීක්ෂා කිරීම
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("status") === "success") {
+        alert("ගෙවීම් සාර්ථකයි! ඔබගේ Pro සාමාජිකත්වය සක්‍රීය විය. 🌟");
+        // URL එක පිරිසිදු කිරීම (query params ඉවත් කිරීම)
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
     let streamInstance: MediaStream | null = null;
 
     const startCamera = async () => {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -19,7 +18,6 @@ export default function UpgradeModal({
   userPhone = "0771234567" 
 }: UpgradeModalProps) {
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   if (!isOpen) return null;
 
@@ -49,8 +47,9 @@ export default function UpgradeModal({
 
       const { hash, merchant_id } = await res.json();
 
-      // App URL එක ලබා ගැනීම (Production live domain හෝ local origin)
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      // App URL එක සහ දැනට ළමයා සිටින Page Path එක ලබා ගැනීම (404 Error වළක්වා ගැනීමට)
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== "undefined" ? window.location.origin : "");
+      const currentPath = typeof window !== "undefined" ? window.location.pathname : "/";
 
       // Sandbox හෝ Live mode තෝරා ගැනීම
       const payhereActionUrl = process.env.NEXT_PUBLIC_PAYHERE_MODE === "live"
@@ -64,8 +63,8 @@ export default function UpgradeModal({
 
       const params: Record<string, string> = {
         merchant_id: merchant_id,
-        return_url: `${appUrl}/paper?status=success&email=${encodeURIComponent(userEmail)}`,
-        cancel_url: `${appUrl}/paper?status=cancel`,
+        return_url: `${appUrl}${currentPath}?status=success&email=${encodeURIComponent(userEmail)}`,
+        cancel_url: `${appUrl}${currentPath}?status=cancel`,
         notify_url: `${appUrl}/api/payhere/notify`, // 👈 Webhook route එක
         order_id: orderId,
         items: "GMath Mithura Pro - මාසික සාමාජිකත්වය (රු. 300)",
@@ -74,7 +73,7 @@ export default function UpgradeModal({
         hash: hash,
         first_name: userName.split(" ")[0] || "Student",
         last_name: userName.split(" ")[1] || "User",
-        email: userEmail, // 👈 ඩමි ඊමේල් වෙනුවට ඇත්ත User Email එක
+        email: userEmail,
         phone: userPhone,
         address: "Sri Lanka",
         city: "Colombo",
@@ -125,15 +124,15 @@ export default function UpgradeModal({
         <div className="text-left bg-slate-50 p-4 rounded-2xl mb-6 text-xs text-slate-700 space-y-2 border border-slate-100">
           <div className="flex items-center gap-2">
             <span className="text-emerald-600 font-bold">✓</span>
-            <span>මසකට ඕනෑම ප්‍රශ්න පත්‍ර 10ක් (Paper 1 / Paper 2)</span>
+            <span>දෛනික AI ප්‍රශ්න ඇසීම් Unlimited</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-emerald-600 font-bold">✓</span>
-            <span>දෛනික AI ප්‍රශ්න ඇසීම් 50ක්</span>
+            <span>දෛනික Photo Scan Unlimited</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-emerald-600 font-bold">✓</span>
-            <span>දෛනික Photo Scan 50ක්</span>
+            <span>දවසේ අභියෝගය (Daily Challenge) සීමාမဲ့ ප්‍රවේශය</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-emerald-600 font-bold">✓</span>
