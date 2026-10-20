@@ -9,6 +9,8 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import UpgradeModal from "@/components/UpgradeModal";
 import { useLocalChat } from "@/hooks/useLocalChat";
+import { db } from "@/lib/firebase"; 
+import { doc, getDoc } from "firebase/firestore";
 
 const parseAIResponse = (fullText: string) => {
   const svgRegex = /<svg[\s\S]*?<\/svg>/;
@@ -32,6 +34,7 @@ export default function ScannerPage() {
   const [solution, setSolution] = useState<string | null>(null);
   const [svgCode, setSvgCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isProUser, setIsProUser] = useState(false);
 
   const { messages, addMessage, clearHistory } = useLocalChat("gmath_scanner_history");
 
@@ -50,13 +53,32 @@ export default function ScannerPage() {
     
     setUserEmail(email);
 
-    // 🎯 PayHere එකෙන් සාර්ථකව ගෙවීම් කර ආපසු පැමිණි විට පරීක්ෂා කිරීම
+    // 🎯 1. Live Firestore Database එකෙන් User ගේ Pro/Paid තත්ත්වය බලමු
+    const checkLiveUserStatus = async () => {
+      try {
+        const userRef = doc(db, "users", email.toLowerCase());
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          if (userData.isPaid === true || userData.plan === "pro") {
+            setIsProUser(true);
+          }
+        }
+      } catch (err) {
+        console.error("Live Status Check Error:", err);
+      }
+    };
+
+    checkLiveUserStatus();
+
+    // 🎯 2. PayHere එකෙන් ගෙවීම් කරලා ආපසු එන විට
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("status") === "success") {
         alert("ගෙවීම් සාර්ථකයි! ඔබගේ Pro සාමාජිකත්වය සක්‍රීය විය. 🌟");
-        // URL එක පිරිසිදු කිරීම (query params ඉවත් කිරීම)
         window.history.replaceState({}, document.title, window.location.pathname);
+        checkLiveUserStatus();
       }
     }
 
@@ -118,7 +140,16 @@ export default function ScannerPage() {
       });
 
       if (res.status === 429) {
-        setShowUpgradeModal(true);
+        // 🎯 429 ආවොත්, Live DB එකෙන් ආයෙත් Re-check කරනවා
+        const userRef = doc(db, "users", userEmail.toLowerCase());
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists() && (userSnap.data().isPaid === true || userSnap.data().plan === "pro")) {
+          setIsProUser(true);
+          alert("ඔබගේ Pro සාමාජිකත්වය සක්‍රීයව පවතී. කරුණාකර නැවත 'විසඳුම ගන්න' ඔබන්න! 🚀");
+        } else {
+          setShowUpgradeModal(true);
+        }
         return;
       }
 
@@ -158,7 +189,14 @@ export default function ScannerPage() {
         <Link href="/" className="text-xl text-indigo-600 font-bold hover:opacity-80 transition flex items-center gap-1">
           <span>🔙</span> මුල් පිටුවට
         </Link>
-        <h2 className="text-base font-extrabold text-indigo-900">ප්‍රශ්නය Scan කරන්න 📷</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-extrabold text-indigo-900">ප්‍රශ්නය Scan කරන්න 📷</h2>
+          {isProUser && (
+            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+              PRO 👑
+            </span>
+          )}
+        </div>
         
         {messages.length > 0 ? (
           <button 
