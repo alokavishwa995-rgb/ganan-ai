@@ -9,8 +9,8 @@ import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import UpgradeModal from "@/components/UpgradeModal";
 import { useLocalChat } from "@/hooks/useLocalChat";
-import { db } from "@/lib/firebase"; // 👈 Firebase Live DB එක
-import { doc, getDoc } from "firebase/firestore"; // 👈 Firestore functions
+import { db } from "@/lib/firebase"; 
+import { doc, getDoc } from "firebase/firestore";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
   const [isClient, setIsClient] = useState(false);
-  const [isProUser, setIsProUser] = useState(false); // 🎯 Live Pro Status එක තබා ගැනීමට
+  const [isProUser, setIsProUser] = useState(false); 
 
   const { messages, addMessage, clearHistory, isLoaded } = useLocalChat("gmath_chat_history");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -55,14 +55,13 @@ export default function ChatPage() {
 
     checkLiveUserStatus();
 
-    // 🎯 PayHere එකෙන් සාර්ථකව ගෙවීම් කර ආපසු පැමිණි විට පරීක්ෂා කිරීම
+    // 🎯 PayHere එකෙන් සාර්ථකව ගෙවීම් කර ආපසු පැමිණි විට
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("status") === "success") {
         alert("ගෙවීම් සාර්ථකයි! ඔබගේ Pro සාමාජිකත්වය සක්‍රීය විය. 🌟");
-        // URL එක පිරිසිදු කිරීම (query params ඉවත් කිරීම)
         window.history.replaceState({}, document.title, window.location.pathname);
-        checkLiveUserStatus(); // ආපසු ආ සැනින් Live DB Status එක Re-check කිරීම
+        checkLiveUserStatus(); 
       }
     }
 
@@ -110,14 +109,18 @@ export default function ChatPage() {
         body: JSON.stringify({ messages: formattedMessages, userEmail }),
       });
 
+      // 🎯 429 Status ආවොත් (කරදරකාරී Alert Pop-up කිසිවක් නැත)
       if (res.status === 429) {
-        // 🎯 API එකෙන් 429 එව්වොත්, සැබෑ ලෙසම Live DB එකේ PRO ද කියලා ආයෙත් තහවුරු කරගැනීම
         const userRef = doc(db, "users", userEmail.toLowerCase());
         const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists() && (userSnap.data().isPaid === true || userSnap.data().plan === "pro")) {
+        const isLivePro = userSnap.exists() && (userSnap.data()?.isPaid === true || userSnap.data()?.plan === "pro");
+
+        if (isLivePro) {
           setIsProUser(true);
-          alert("ඔබගේ Pro සාමාජිකත්වය සක්‍රීයව පවතී. කරුණාකර නැවත ප්‍රශ්නය යොමු කරන්න! 🚀");
+          addMessage({
+            sender: "ai",
+            text: "ඔබගේ Pro සාමාජිකත්වය සක්‍රීයයි. කරුණාකර නැවත වරක් ප්‍රශ්නය යොමු කරන්න! 🚀",
+          });
         } else {
           setShowUpgradeModal(true);
         }
@@ -159,7 +162,6 @@ export default function ChatPage() {
     }
   };
 
-  // 2. Load වනතුරු හිස් තිරයක් පෙන්වීම (Hydration Error වළක්වයි)
   if (!isClient || !userEmail) {
     return <div className="h-screen bg-slate-50"></div>;
   }

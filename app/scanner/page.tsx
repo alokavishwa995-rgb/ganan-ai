@@ -53,7 +53,7 @@ export default function ScannerPage() {
     
     setUserEmail(email);
 
-    // 🎯 1. Live Firestore Database එකෙන් User ගේ Pro/Paid තත්ත්වය බලමු
+    // 🎯 1. Live Firestore Database එකෙන් User ගේ Pro/Paid තත්ත්වය පරීක්ෂා කිරීම
     const checkLiveUserStatus = async () => {
       try {
         const userRef = doc(db, "users", email.toLowerCase());
@@ -72,7 +72,7 @@ export default function ScannerPage() {
 
     checkLiveUserStatus();
 
-    // 🎯 2. PayHere එකෙන් ගෙවීම් කරලා ආපසු එන විට
+    // 🎯 2. PayHere එකෙන් ගෙවීම් කරලා ආපසු එන විට පරීක්ෂා කිරීම
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("status") === "success") {
@@ -139,17 +139,19 @@ export default function ScannerPage() {
         headers: { "Content-Type": "application/json" },
       });
 
+      // 🎯 429 Status ආවොත් (කරදරකාරී Pop-up Alert එක නැත)
       if (res.status === 429) {
-        // 🎯 429 ආවොත්, Live DB එකෙන් ආයෙත් Re-check කරනවා
         const userRef = doc(db, "users", userEmail.toLowerCase());
         const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists() && (userSnap.data().isPaid === true || userSnap.data().plan === "pro")) {
+        const isLivePro = userSnap.exists() && (userSnap.data()?.isPaid === true || userSnap.data()?.plan === "pro");
+
+        if (isLivePro) {
           setIsProUser(true);
-          alert("ඔබගේ Pro සාමාජිකත්වය සක්‍රීයව පවතී. කරුණාකර නැවත 'විසඳුම ගන්න' ඔබන්න! 🚀");
+          setSolution("ඔබගේ Pro සාමාජිකත්වය සක්‍රීයයි. කරුණාකර නැවත වරක් 'විසඳුම ගන්න' ඔබන්න! 🚀");
         } else {
           setShowUpgradeModal(true);
         }
+        setLoading(false);
         return;
       }
 
