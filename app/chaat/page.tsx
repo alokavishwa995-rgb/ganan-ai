@@ -24,7 +24,6 @@ export default function ChatPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. LocalStorage, Live Firestore DB සහ PayHere Return Status පරීක්ෂා කිරීම
   useEffect(() => {
     setIsClient(true);
     const email = localStorage.getItem("userEmail");
@@ -106,23 +105,18 @@ export default function ChatPage() {
       const res = await fetch("/api/chaat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: formattedMessages, userEmail }),
+        body: JSON.stringify({ messages: formattedMessages, userEmail, isPro: isProUser }),
       });
 
-      // 🎯 429 Status ආවොත් (කරදරකාරී Alert Pop-up කිසිවක් නැත)
+      // 🎯 Free User කෙනෙක්ගේ Limit එක ඉවර වුණොත් විතරක් Upgrade Modal එක පෙන්වනවා
       if (res.status === 429) {
-        const userRef = doc(db, "users", userEmail.toLowerCase());
-        const userSnap = await getDoc(userRef);
-        const isLivePro = userSnap.exists() && (userSnap.data()?.isPaid === true || userSnap.data()?.plan === "pro");
-
-        if (isLivePro) {
-          setIsProUser(true);
+        if (!isProUser) {
+          setShowUpgradeModal(true);
+        } else {
           addMessage({
             sender: "ai",
-            text: "ඔබගේ Pro සාමාජිකත්වය සක්‍රීයයි. කරුණාකර නැවත වරක් ප්‍රශ්නය යොමු කරන්න! 🚀",
+            text: "පොඩි සම්බන්ධතා දෝෂයක් ආවා. කරුණාකර නැවත උත්සාහ කරන්න! 🔄",
           });
-        } else {
-          setShowUpgradeModal(true);
         }
         setLoading(false);
         return;
