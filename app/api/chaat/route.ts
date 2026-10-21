@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebaseAdmin";
 import { checkAndUpdateLimit } from "@/lib/checkLimits";
 
-// 🔒 Security Fix: Server-side key එක භාවිත කිරීම
+// 🔒 Security: Server-side API key එක ලබා ගැනීම
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey || "");
 
@@ -19,19 +19,22 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, messages: [] });
     }
 
+    const cleanEmail = userEmail.trim().toLowerCase();
+
     // Admin SDK භාවිතයෙන් Database එකෙන් History එක ලබා ගැනීම
     const snapshot = await adminDb
       .collection("user_chats")
-      .where("userEmail", "==", userEmail)
+      .where("userEmail", "==", cleanEmail)
       .orderBy("createdAt", "asc")
       .limit(40)
       .get();
 
     const messages = snapshot.docs.map((doc: any) => ({
-  role: doc.data().role,
-  content: doc.data().content,
-  svgDiagram: doc.data().svgDiagram || "",
-}));
+      role: doc.data().role,
+      content: doc.data().content,
+      svgDiagram: doc.data().svgDiagram || "",
+    }));
+
     return NextResponse.json({ success: true, messages });
   } catch (err) {
     console.error("Fetch History Error:", err);
@@ -40,37 +43,59 @@ export async function GET(req: Request) {
 }
 
 // ----------------------------------------------------
-// POST: New Chat Message & Limit Check
+// POST: New Chat Message & Live PRO Check + Limit Check
 // ----------------------------------------------------
 export async function POST(req: Request) {
   try {
-    if (!apiKey) return NextResponse.json({ error: "API Key missing" }, { status: 500 });
+    if (!apiKey) {
+      return NextResponse.json({ error: "API Key missing" }, { status: 500 });
+    }
 
     const body = await req.json();
     const messages = body.messages || [];
     const userEmail = body.userEmail;
     const userMessage = messages[messages.length - 1]?.content || "";
 
-    // A. Email එක තියෙනවද කියලා බලනවා
+    // A. Email එක පරීක්ෂා කිරීම
     if (!userEmail) {
-      return NextResponse.json({ success: false, error: "කරුණාකර පළමුව Email එකෙන් Log වන්න." }, { status: 401 });
-    }
-
-    if (!userMessage.trim()) {
-      return NextResponse.json({ success: false, error: "ප්‍රශ්නයක් ඇතුළත් කර නැත." }, { status: 400 });
-    }
-
-    // B. AI එකට Request එක යවන්න කලින් Limit Check එක සිදු කිරීම
-    const limitCheck = await checkAndUpdateLimit(userEmail, "askQuestions");
-    
-    if (!limitCheck.allowed) {
       return NextResponse.json(
-        { success: false, error: limitCheck.message },
-        { status: 429 }
+        { success: false, error: "කරුණාකර පළමුව Email එකෙන් Log වන්න." },
+        { status: 401 }
       );
     }
 
-    // C. Limit එක ඇතුළේ ඉන්නවා නම් Gemini AI එකට Request එක යැවීම
+    if (!userMessage.trim()) {
+      return NextResponse.json(
+        { success: false, error: "ප්‍රශ්නයක් ඇතුළත් කර නැත." },
+        { status: 400 }
+      );
+    }
+
+    const cleanEmail = userEmail.trim().toLowerCase();
+
+    // B. Live Database (users collection) එකෙන් පරිශීලකයා PRO ද යන්න සෘජුව පරීක්ෂා කිරීම
+    const userRef = adminDb.collection("users").doc(cleanEmail);
+    const userSnap = await userRef.get();
+    const userData = userSnap.data();
+
+    const isProUser =
+      body.isPro === true ||
+      userData?.isPaid === true ||
+      userData?.plan === "pro";
+
+    // C. FREE පරිශීලකයින් සඳහා පමණක් Limit Check එක සිදු කිරීම (PRO අයට Unlimited)
+    if (!isProUser) {
+      const limitCheck = await checkAndUpdateLimit(cleanEmail, "askQuestions");
+
+      if (!limitCheck.allowed) {
+        return NextResponse.json(
+          { success: false, error: limitCheck.message },
+          { status: 429 }
+        );
+      }
+    }
+
+    // D. Gemini AI Model එක සක්‍රීය කිරීම
     const model = genAI.getGenerativeModel({
       model: "gemini-3.8-flash",
       generationConfig: { temperature: 0.3 },
@@ -90,7 +115,12 @@ export async function POST(req: Request) {
 
     const formattedHistory = messages
       .slice(-6)
-      .map((m: any) => `${m.role === "user" ? "Student" : "Teacher"}: ${m.content}`)
+      .map(
+        (m: any) =>
+          `${m.role === "user" ? "Student" : "Teacher"}: ${
+            m.content || m.text || ""
+          }`
+      )
       .join("\n");
 
     const promptText = `පරණ සංවාදය:\n${formattedHistory}\n\nළමයාගේ නව ප්‍රශ්නය: ${userMessage}`;
@@ -105,37 +135,41 @@ export async function POST(req: Request) {
 
     const readableStream = new ReadableStream({
       async start(controller) {
-        for await (const chunk of resultStream.stream) {
-          const text = chunk.text();
-          fullAiResponse += text;
-          controller.enqueue(encoder.encode(text));
-        }
-
-        // DB එකට Save කිරීම (Admin SDK භාවිතයෙන්)
         try {
-          const svgMatch = fullAiResponse.match(/\[\[SVG:\s*(<svg[\s\S]*?<\/svg>)\s*\]\]/);
+          for await (const chunk of resultStream.stream) {
+            const text = chunk.text();
+            fullAiResponse += text;
+            controller.enqueue(encoder.encode(text));
+          }
+
+          // සංවාද සටහන Database එකේ Save කිරීම
+          const svgMatch = fullAiResponse.match(
+            /\[\[SVG:\s*(<svg[\s\S]*?<\/svg>)\s*\]\]/
+          );
           const svgDiagram = svgMatch ? svgMatch[1] : "";
-          const cleanContent = fullAiResponse.replace(/\[\[SVG:[\s\S]*?\]\]/g, "").trim();
+          const cleanContent = fullAiResponse
+            .replace(/\[\[SVG:[\s\S]*?\]\]/g, "")
+            .trim();
 
           await adminDb.collection("user_chats").add({
-            userEmail,
+            userEmail: cleanEmail,
             role: "user",
             content: userMessage,
             createdAt: new Date(),
           });
 
           await adminDb.collection("user_chats").add({
-            userEmail,
+            userEmail: cleanEmail,
             role: "assistant",
             content: cleanContent,
             svgDiagram,
             createdAt: new Date(),
           });
         } catch (e) {
-          console.warn("DB Save Error:", e);
+          console.warn("Stream processing / DB Save Error:", e);
+        } finally {
+          controller.close();
         }
-
-        controller.close();
       },
     });
 
@@ -144,6 +178,9 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("Chat Error:", error);
-    return NextResponse.json({ success: false, error: "දෝෂයක් ඇති විය." }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "දෝෂයක් ඇති විය." },
+      { status: 500 }
+    );
   }
 }

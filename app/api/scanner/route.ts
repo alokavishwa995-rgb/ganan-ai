@@ -15,7 +15,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "API Key එක ඇතුළත් කර නැත." }, { status: 500 });
     }
 
-    const { image, userEmail } = await req.json();
+    const body = await req.json();
+    const { image, userEmail, isPro } = body;
 
     if (!userEmail) {
       return NextResponse.json(
@@ -31,20 +32,35 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🛑 1. Photo Scan Daily Limit Check එක සිදු කිරීම (Free: 1, Paid: 20)
-    const limitCheck = await checkAndUpdateLimit(userEmail, "photoScan");
-    if (!limitCheck.allowed) {
-      return NextResponse.json(
-        { error: limitCheck.message },
-        { status: 429 } // Limit එක පැන්න විට status 429 යවයි
-      );
+    const cleanEmail = userEmail.trim().toLowerCase();
+
+    // 🎯 1. Live Firestore Database එකෙන් User ගේ PRO status සෘජුව පරීක්ෂා කිරීම
+    const userRef = adminDb.collection("users").doc(cleanEmail);
+    const userSnap = await userRef.get();
+    const userData = userSnap.data();
+
+    const isProUser =
+      isPro === true ||
+      userData?.isPaid === true ||
+      userData?.plan === "pro";
+
+    // 🛑 2. Photo Scan Limit Check එක සිදු කරන්නේ FREE පරිශීලකයින්ට පමණි (PRO අයට Unlimited)
+    if (!isProUser) {
+      const limitCheck = await checkAndUpdateLimit(cleanEmail, "photoScan");
+      if (!limitCheck.allowed) {
+        return NextResponse.json(
+          { error: limitCheck.message },
+          { status: 429 } // Limit එක පැන්න විට status 429 යවයි
+        );
+      }
     }
 
+    // 🎯 3. Gemini AI Model එක (gemini-3.8-flash ලෙසම තබා ඇත)
     const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
 
     const imageData = image.split(",")[1];
 
-    // 2. ප්‍රොම්ප්ට් එක
+    // ප්‍රොම්ප්ට් එක
     const prompt = `
       You are a strict O/L Mathematics tutor. Analyze the math problem shown in this image.
       Follow these rules exactly:
@@ -72,21 +88,21 @@ export async function POST(req: Request) {
     const response = result.response; 
     const text = response.text();
 
-    // 🎯 3. Firestore Database එකට Scan History එක Save කිරීම (Admin SDK භාවිතයෙන්)
+    // 🎯 4. Firestore Database එකට Scan History එක Save කිරීම (Admin SDK භාවිතයෙන්)
     try {
       const svgMatch = text.match(/\[\[SVG:\s*(<svg[\s\S]*?<\/svg>)\s*\]\]/) || text.match(/(<svg[\s\S]*?<\/svg>)/);
       const svgDiagram = svgMatch ? svgMatch[1] : "";
       const cleanContent = text.replace(/\[\[SVG:[\s\S]*?\]\]/g, "").replace(/(<svg[\s\S]*?<\/svg>)/g, "").trim();
 
       await adminDb.collection("user_chats").add({
-        userEmail,
+        userEmail: cleanEmail,
         role: "user",
         content: "📸 [Photo Scan ප්‍රශ්නයක් යොමු කරන ලදී]",
         createdAt: new Date(),
       });
 
       await adminDb.collection("user_chats").add({
-        userEmail,
+        userEmail: cleanEmail,
         role: "assistant",
         content: cleanContent || text,
         svgDiagram,
@@ -96,7 +112,7 @@ export async function POST(req: Request) {
       console.warn("DB Save Error:", dbErr);
     }
 
-    // 4. Frontend එකට Response එක යැවීම
+    // 5. Frontend එකට Response එක යැවීම
     return NextResponse.json({ text, success: true });
 
   } catch (error: any) {
