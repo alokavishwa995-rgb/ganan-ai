@@ -9,9 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@ai-sdk/google": "^4.0.101",
+    "@ai-sdk/google": "^4.0.102",
+    "@ai-sdk/react": "^4.0.152",
     "@google/generative-ai": "^0.24.1",
-    "ai": "^7.0.146",
+    "ai": "^7.0.148",
     "firebase": "^12.19.0",
     "firebase-admin": "^14.5.0",
     "katex": "^0.18.7",

@@ -76,7 +76,7 @@ export async function checkAndUpdateLimit(
   } 
   else if (featureType === "paperGen") {
     
-    const maxLimit = isPaid ? 10 : 0;
+    const maxLimit = isPaid ? 0 : 0;
     
     if (monthlyUsage.paperGen >= maxLimit) {
       return { 

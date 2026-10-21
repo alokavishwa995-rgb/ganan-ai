@@ -8,19 +8,23 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 import UpgradeModal from "@/components/UpgradeModal";
-import { useLocalChat } from "@/hooks/useLocalChat";
 import { db } from "@/lib/firebase"; 
 import { doc, getDoc } from "firebase/firestore";
+
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
 
 export default function ChatPage() {
   const router = useRouter();
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
   const [isClient, setIsClient] = useState(false);
   const [isProUser, setIsProUser] = useState(false); 
-
-  const { messages, addMessage, clearHistory, isLoaded } = useLocalChat("gmath_chat_history");
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -35,7 +39,6 @@ export default function ChatPage() {
     
     setUserEmail(email);
 
-    // 🎯 Live Firestore Database එකෙන් User ගේ Pro/Paid තත්ත්වය පරීක්ෂා කිරීම
     const checkLiveUserStatus = async () => {
       try {
         const userRef = doc(db, "users", email.toLowerCase());
@@ -54,7 +57,6 @@ export default function ChatPage() {
 
     checkLiveUserStatus();
 
-    // 🎯 PayHere එකෙන් සාර්ථකව ගෙවීම් කර ආපසු පැමිණි විට
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("status") === "success") {
@@ -63,18 +65,11 @@ export default function ChatPage() {
         checkLiveUserStatus(); 
       }
     }
-
-    if (email && isLoaded && messages.length === 0) {
-      addMessage({
-        sender: "ai",
-        text: "ආයුබෝවන් යාලුවා! 🌟 මම ඔයාගේ 'ගණිත මිතුරා'. ගණිතය කියන්නේ ගේම් එකක් වගේ හරිම විනෝදජනක දෙයක්. ඔයාට අමාරු ඕනෑම තැනක් මගෙන් අහන්න. අපි එකතුවෙලා ලේසියෙන්ම විසඳමු! 💪",
-      });
-    }
-  }, [router, isLoaded, messages.length, addMessage]);
+  }, [router]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, isLoading]);
 
   const extractSvgAndContent = (rawText: string) => {
     const svgMatch = rawText.match(/\[\[SVG:\s*(<svg[\s\S]*?<\/svg>)\s*\]\]/);
@@ -83,76 +78,60 @@ export default function ChatPage() {
     return { cleanContent, svgDiagram };
   };
 
-  const handleSend = async (textToSend?: string) => {
-    const query = textToSend || input;
-    if (!query.trim() || loading || !userEmail) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading || !userEmail) return;
 
-    addMessage({
-      sender: "user",
-      text: query,
-    });
-
-    if (!textToSend) setInput("");
-    setLoading(true);
+    const userMsg: Message = { id: Date.now().toString(), role: "user", content: input };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    setInput("");
+    setIsLoading(true);
 
     try {
-      const formattedMessages = messages.map((m) => ({
-        role: m.sender === "user" ? "user" : "assistant",
-        content: m.text,
-      }));
-      formattedMessages.push({ role: "user", content: query });
-
       const res = await fetch("/api/chaat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: formattedMessages, userEmail, isPro: isProUser }),
+        body: JSON.stringify({
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          userEmail,
+          isPro: isProUser,
+        }),
       });
 
-      // 🎯 Free User කෙනෙක්ගේ Limit එක ඉවර වුණොත් විතරක් Upgrade Modal එක පෙන්වනවා
       if (res.status === 429) {
         if (!isProUser) {
           setShowUpgradeModal(true);
-        } else {
-          addMessage({
-            sender: "ai",
-            text: "පොඩි සම්බන්ධතා දෝෂයක් ආවා. කරුණාකර නැවත උත්සාහ කරන්න! 🔄",
-          });
         }
-        setLoading(false);
+        setIsLoading(false);
         return;
       }
 
-      if (!res.ok) throw new Error("Network response failed");
-      if (!res.body) throw new Error("No response body");
+      if (!res.ok || !res.body) {
+        throw new Error("Failed to stream response");
+      }
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let accumulatedText = "";
+      let aiText = "";
+
+      const aiMsgId = (Date.now() + 1).toString();
+      setMessages((prev) => [...prev, { id: aiMsgId, role: "assistant", content: "" }]);
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         const chunk = decoder.decode(value, { stream: true });
-        accumulatedText += chunk;
+        aiText += chunk;
+
+        setMessages((prev) =>
+          prev.map((msg) => (msg.id === aiMsgId ? { ...msg, content: aiText } : msg))
+        );
       }
-
-      const { cleanContent, svgDiagram } = extractSvgAndContent(accumulatedText);
-
-      addMessage({
-        sender: "ai",
-        text: cleanContent,
-        imageUrl: svgDiagram ? `data:image/svg+xml;utf8,${encodeURIComponent(svgDiagram)}` : undefined,
-      });
-
     } catch (err) {
-      console.error("Streaming error:", err);
-      addMessage({
-        sender: "ai",
-        text: "අයියෝ! පොඩි දෝෂයක් ආවා. ටිකකින් ආයෙත් අහන්නකෝ! 😥",
-      });
+      console.error("Chat error:", err);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -187,7 +166,7 @@ export default function ChatPage() {
         
         {messages.length > 0 ? (
           <button
-            onClick={clearHistory}
+            onClick={() => setMessages([])}
             className="text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 px-3 py-1.5 rounded-xl border border-rose-200 transition"
           >
             History මකන්න 🗑️
@@ -199,15 +178,23 @@ export default function ChatPage() {
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl w-full mx-auto">
-        {!isLoaded ? (
-          <div className="flex justify-center items-center h-full text-indigo-500 font-medium animate-pulse">
-            සංවාද සටහන් Phone එකෙන් Load වෙමින් පවතී... ⌛
+        {messages.length === 0 && (
+          <div className="bg-white p-5 rounded-3xl border border-indigo-100 shadow-sm flex items-start gap-3 max-w-[85%]">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-lg flex-shrink-0">
+              🤖
+            </div>
+            <p className="text-[15px] leading-relaxed text-slate-700 font-medium">
+              ආයුබෝවන් යාලුවා! 🌟 මම ඔයාගේ 'ගණිත මිතුරා'. ගණිතය කියන්නේ ගේම් එකක් වගේ හරිම විනෝදජනක දෙයක්. ඔයාට අමාරු ඕනෑම තැනක් මගෙන් අහන්න. අපි එකතුවෙලා ලේසියෙන්ම විසඳමු! 💪
+            </p>
           </div>
-        ) : (
-          messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"} items-end gap-2`}>
-              
-              {msg.sender === "ai" && (
+        )}
+
+        {messages.map((msg) => {
+          const { cleanContent, svgDiagram } = extractSvgAndContent(msg.content);
+
+          return (
+            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}>
+              {msg.role !== "user" && (
                 <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-lg shadow-sm mb-1 flex-shrink-0">
                   🤖
                 </div>
@@ -215,7 +202,7 @@ export default function ChatPage() {
 
               <div
                 className={`max-w-[85%] md:max-w-[75%] p-4 md:p-5 text-[15px] leading-relaxed shadow-md ${
-                  msg.sender === "user"
+                  msg.role === "user"
                     ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-3xl rounded-br-sm"
                     : "bg-white text-slate-800 rounded-3xl rounded-bl-sm border border-indigo-50"
                 }`}
@@ -225,21 +212,21 @@ export default function ChatPage() {
                     remarkPlugins={[remarkMath]}
                     rehypePlugins={[rehypeKatex]}
                   >
-                    {msg.text}
+                    {cleanContent}
                   </ReactMarkdown>
                 </div>
 
-                {msg.imageUrl && msg.imageUrl.startsWith("data:image/svg+xml") && (
+                {svgDiagram && (
                   <div className="mt-4 p-4 bg-slate-50/50 rounded-2xl border border-indigo-100 flex justify-center items-center shadow-inner overflow-hidden">
-                    <img src={msg.imageUrl} alt="Math Diagram" className="max-w-full h-auto" />
+                    <div dangerouslySetInnerHTML={{ __html: svgDiagram }} />
                   </div>
                 )}
               </div>
             </div>
-          ))
-        )}
+          );
+        })}
 
-        {loading && (
+        {isLoading && (
           <div className="flex justify-start items-end gap-2">
             <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-lg shadow-sm mb-1">
               🤔
@@ -258,19 +245,18 @@ export default function ChatPage() {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 bg-gradient-to-t from-white via-white to-transparent pb-6">
+      <form onSubmit={handleSubmit} className="p-4 bg-gradient-to-t from-white via-white to-transparent pb-6">
         <div className="max-w-4xl mx-auto flex gap-3 items-center bg-white p-2 rounded-full border border-indigo-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus-within:ring-2 focus-within:ring-indigo-200 transition-all">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="බය නැතුව ඕනෑම ප්‍රශ්නයක් අහන්න... ✍️"
             className="flex-1 px-4 py-3 bg-transparent text-[15px] focus:outline-none text-slate-700 placeholder-slate-400"
           />
           <button
-            onClick={() => handleSend()}
-            disabled={loading || !input.trim()}
+            type="submit"
+            disabled={isLoading || !input.trim()}
             className="w-12 h-12 flex items-center justify-center bg-indigo-600 text-white rounded-full hover:bg-indigo-700 hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100 shadow-md mr-1"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 ml-1">
@@ -281,7 +267,7 @@ export default function ChatPage() {
         <p className="text-center text-[11px] text-slate-400 mt-3 font-medium">
           ගණිත මිතුරා හට වැරදීම් සිදුවිය හැක. වැදගත් තොරතුරු නැවත පරීක්ෂා කරන්න.
         </p>
-      </div>
+      </form>
 
       <UpgradeModal 
         isOpen={showUpgradeModal} 
