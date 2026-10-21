@@ -12,36 +12,19 @@ import { useLocalChat } from "@/hooks/useLocalChat";
 import { db } from "@/lib/firebase"; // 👈 Firebase Live DB එක
 import { doc, getDoc } from "firebase/firestore"; // 👈 Firestore functions
 
-const parseAIResponse = (fullText: string) => {
-  const svgRegex = /<svg[\s\S]*?<\/svg>/;
-  const match = fullText.match(svgRegex);
-  
-  if (match) {
-    const svgCode = match[0];
-    const plainText = fullText.replace(svgRegex, "").trim(); 
-    return { text: plainText, svg: svgCode };
-  }
-  
-  return { text: fullText, svg: null };
-};
-
-export default function ScannerPage() {
+export default function ChatPage() {
   const router = useRouter();
-  
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [imgSrc, setImgSrc] = useState<string | null>(null);
-  const [solution, setSolution] = useState<string | null>(null);
-  const [svgCode, setSvgCode] = useState<string | null>(null);
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isProUser, setIsProUser] = useState(false); // 🎯 Live Pro Status එක තබා ගැනීමට
-
-  const { messages, addMessage, clearHistory } = useLocalChat("gmath_scanner_history");
-
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [userEmail, setUserEmail] = useState<string>("");
   const [isClient, setIsClient] = useState(false);
+  const [isProUser, setIsProUser] = useState(false); // 🎯 Live Pro Status එක තබා ගැනීමට
 
+  const { messages, addMessage, clearHistory, isLoaded } = useLocalChat("gmath_chat_history");
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // 1. LocalStorage, Live Firestore DB සහ PayHere Return Status පරීක්ෂා කිරීම
   useEffect(() => {
     setIsClient(true);
     const email = localStorage.getItem("userEmail");
@@ -53,7 +36,7 @@ export default function ScannerPage() {
     
     setUserEmail(email);
 
-    // 🎯 1. Live Database (Firestore) එකෙන් User ගේ සැබෑ Pro තත්ත්වය කෙළින්ම පරීක්ෂා කිරීම
+    // 🎯 Live Firestore Database එකෙන් User ගේ Pro/Paid තත්ත්වය පරීක්ෂා කිරීම
     const checkLiveUserStatus = async () => {
       try {
         const userRef = doc(db, "users", email.toLowerCase());
@@ -72,71 +55,59 @@ export default function ScannerPage() {
 
     checkLiveUserStatus();
 
-    // 🎯 PayHere එකෙන් සාර්ථකව ගෙවීම් කර ආපසු පැමිණි විට
+    // 🎯 PayHere එකෙන් සාර්ථකව ගෙවීම් කර ආපසු පැමිණි විට පරීක්ෂා කිරීම
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get("status") === "success") {
         alert("ගෙවීම් සාර්ථකයි! ඔබගේ Pro සාමාජිකත්වය සක්‍රීය විය. 🌟");
+        // URL එක පිරිසිදු කිරීම (query params ඉවත් කිරීම)
         window.history.replaceState({}, document.title, window.location.pathname);
         checkLiveUserStatus(); // ආපසු ආ සැනින් Live DB Status එක Re-check කිරීම
       }
     }
 
-    let streamInstance: MediaStream | null = null;
-
-    const startCamera = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } 
-        });
-        streamInstance = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (err) {
-        console.error("Camera Error: ", err);
-      }
-    };
-
-    startCamera();
-
-    return () => {
-      if (streamInstance) {
-        streamInstance.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [router]);
-
-  const capturePhoto = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (video && canvas) {
-      const context = canvas.getContext("2d");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      setImgSrc(canvas.toDataURL("image/jpeg"));
+    if (email && isLoaded && messages.length === 0) {
+      addMessage({
+        sender: "ai",
+        text: "ආයුබෝවන් යාලුවා! 🌟 මම ඔයාගේ 'ගණිත මිතුරා'. ගණිතය කියන්නේ ගේම් එකක් වගේ හරිම විනෝදජනක දෙයක්. ඔයාට අමාරු ඕනෑම තැනක් මගෙන් අහන්න. අපි එකතුවෙලා ලේසියෙන්ම විසඳමු! 💪",
+      });
     }
+  }, [router, isLoaded, messages.length, addMessage]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const extractSvgAndContent = (rawText: string) => {
+    const svgMatch = rawText.match(/\[\[SVG:\s*(<svg[\s\S]*?<\/svg>)\s*\]\]/);
+    const svgDiagram = svgMatch ? svgMatch[1] : "";
+    const cleanContent = rawText.replace(/\[\[SVG:[\s\S]*?\]\]/g, "").trim();
+    return { cleanContent, svgDiagram };
   };
 
-  const handleGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImgSrc(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  const handleSend = async (textToSend?: string) => {
+    const query = textToSend || input;
+    if (!query.trim() || loading || !userEmail) return;
 
-  const sendToAI = async () => {
-    if (!imgSrc || !userEmail) return;
+    addMessage({
+      sender: "user",
+      text: query,
+    });
+
+    if (!textToSend) setInput("");
     setLoading(true);
-    setSvgCode(null);
+
     try {
-      const res = await fetch("/api/scanner", {
+      const formattedMessages = messages.map((m) => ({
+        role: m.sender === "user" ? "user" : "assistant",
+        content: m.text,
+      }));
+      formattedMessages.push({ role: "user", content: query });
+
+      const res = await fetch("/api/chaat", {
         method: "POST",
-        body: JSON.stringify({ image: imgSrc, userEmail }),
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: formattedMessages, userEmail }),
       });
 
       if (res.status === 429) {
@@ -146,153 +117,175 @@ export default function ScannerPage() {
         
         if (userSnap.exists() && (userSnap.data().isPaid === true || userSnap.data().plan === "pro")) {
           setIsProUser(true);
-          alert("ඔබගේ Pro සාමාජිකත්වය සක්‍රීයව පවතී. කරුණාකර නැවත 'විසඳුම ගන්න' ඔබන්න! 🚀");
+          alert("ඔබගේ Pro සාමාජිකත්වය සක්‍රීයව පවතී. කරුණාකර නැවත ප්‍රශ්නය යොමු කරන්න! 🚀");
         } else {
           setShowUpgradeModal(true);
         }
+        setLoading(false);
         return;
       }
 
-      const data = await res.json();
-      
-      const rawText = data.text || data.solution;
-      if (rawText) {
-        const parsed = parseAIResponse(rawText);
-        setSolution(parsed.text);
-        setSvgCode(parsed.svg);
+      if (!res.ok) throw new Error("Network response failed");
+      if (!res.body) throw new Error("No response body");
 
-        addMessage({
-          sender: "ai",
-          text: parsed.text,
-          imageUrl: parsed.svg ? `data:image/svg+xml;utf8,${encodeURIComponent(parsed.svg)}` : imgSrc,
-        });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = "";
 
-      } else {
-        const errorMsg = data.error || "කණගාටුයි, පිළිතුර ලබාගැනීමට නොහැකි වුණා.";
-        setSolution(errorMsg);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        accumulatedText += chunk;
       }
+
+      const { cleanContent, svgDiagram } = extractSvgAndContent(accumulatedText);
+
+      addMessage({
+        sender: "ai",
+        text: cleanContent,
+        imageUrl: svgDiagram ? `data:image/svg+xml;utf8,${encodeURIComponent(svgDiagram)}` : undefined,
+      });
+
     } catch (err) {
-      console.error("Scanner API Error:", err);
-      alert("පිළිතුර ලබාගැනීමට නොහැකි විය. නැවත උත්සාහ කරන්න!");
+      console.error("Streaming error:", err);
+      addMessage({
+        sender: "ai",
+        text: "අයියෝ! පොඩි දෝෂයක් ආවා. ටිකකින් ආයෙත් අහන්නකෝ! 😥",
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  // 2. Load වනතුරු හිස් තිරයක් පෙන්වීම (Hydration Error වළක්වයි)
   if (!isClient || !userEmail) {
-    return <div className="h-screen bg-slate-900"></div>;
+    return <div className="h-screen bg-slate-50"></div>;
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans relative overflow-hidden">
-      <div className="p-4 px-6 flex justify-between items-center bg-white/80 backdrop-blur-md border-b border-indigo-100 fixed top-0 w-full z-20 shadow-sm">
-        <Link href="/" className="text-xl text-indigo-600 font-bold hover:opacity-80 transition flex items-center gap-1">
-          <span>🔙</span> මුල් පිටුවට
+    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-50 to-indigo-50 font-sans relative">
+      
+      {/* Header */}
+      <div className="bg-white/80 backdrop-blur-md border-b border-indigo-100 p-4 flex items-center justify-between shadow-sm sticky top-0 z-10">
+        <Link href="/" className="text-indigo-500 hover:text-indigo-700 flex items-center gap-2 font-medium transition">
+          <span className="text-xl">🔙</span> මුල් පිටුවට
         </Link>
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-extrabold text-indigo-900">ප්‍රශ්නය Scan කරන්න 📷</h2>
-          {isProUser && (
-            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-              PRO 👑
-            </span>
-          )}
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🧑‍🏫</span>
+            <h1 className="text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+              ගණිත මිතුරා
+            </h1>
+            {isProUser && (
+              <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                PRO 👑
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] font-semibold text-indigo-500 mt-0.5">
+            👤 {userEmail}
+          </p>
         </div>
         
         {messages.length > 0 ? (
-          <button 
+          <button
             onClick={clearHistory}
-            className="text-xs bg-rose-50 text-rose-600 px-3 py-1.5 rounded-xl border border-rose-200 hover:bg-rose-100 transition font-medium"
+            className="text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 px-3 py-1.5 rounded-xl border border-rose-200 transition"
           >
-            Clear 🗑️
+            History මකන්න 🗑️
           </button>
         ) : (
-          <div className="w-12"></div>
+          <div className="w-20"></div>
         )}
       </div>
 
-      <div className="flex-1 flex items-center justify-center relative bg-slate-900 mt-[60px] h-[calc(100vh-160px)]">
-        {!imgSrc ? (
-          <>
-            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-            <div className="absolute inset-0 flex items-center justify-center p-6">
-              <div className="w-full max-w-xs h-64 border-2 border-dashed border-indigo-400 rounded-3xl shadow-[0_0_0_9999px_rgba(15,23,42,0.6)] flex items-center justify-center">
-                <span className="text-xs text-white/80 bg-slate-900/60 px-3 py-1.5 rounded-full backdrop-blur-sm">
-                  ප්‍රශ්නය කොටුව ඇතුළත තබන්න
-                </span>
-              </div>
-            </div>
-          </>
-        ) : (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={imgSrc} alt="Captured" className="w-full h-full object-contain bg-slate-900" />
-        )}
-      </div>
-
-      <div className="p-5 px-6 flex flex-col items-center bg-white border-t border-indigo-50 z-10 shadow-lg">
-        {!imgSrc ? (
-          <div className="flex items-center justify-between w-full max-w-sm">
-            <input 
-              type="file" 
-              accept="image/*" 
-              id="gallery-input" 
-              className="hidden" 
-              onChange={handleGallerySelect} 
-            />
-            
-            <label htmlFor="gallery-input" className="w-12 h-12 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center cursor-pointer active:scale-95 transition border border-indigo-100 shadow-sm">
-              <span className="text-xl">🖼️</span>
-            </label>
-
-            <button onClick={capturePhoto} className="w-18 h-18 bg-indigo-600 p-1.5 rounded-full shadow-lg shadow-indigo-200 active:scale-95 transition">
-              <div className="w-full h-full bg-indigo-600 border-4 border-white rounded-full"></div>
-            </button>
-            
-            <div className="w-12 h-12"></div>
+      {/* Chat Area */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl w-full mx-auto">
+        {!isLoaded ? (
+          <div className="flex justify-center items-center h-full text-indigo-500 font-medium animate-pulse">
+            සංවාද සටහන් Phone එකෙන් Load වෙමින් පවතී... ⌛
           </div>
         ) : (
-          <div className="flex gap-3 w-full max-w-sm">
-            <button onClick={() => setImgSrc(null)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-3.5 rounded-2xl font-bold transition">
-              නැවත ගන්න 🔄
-            </button>
-            <button onClick={sendToAI} disabled={loading} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 rounded-2xl font-bold shadow-md shadow-indigo-200 transition disabled:opacity-50">
-              {loading ? "හිතමින් පවතිනවා..." : "විසඳුම ගන්න 🚀"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {solution && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 p-4 sm:p-6 overflow-y-auto flex justify-center items-start pt-10">
-          <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl border border-indigo-50 overflow-hidden my-auto">
-            <div className="p-4 bg-slate-50 border-b border-indigo-50 flex justify-between items-center">
-              <h3 className="text-base font-extrabold text-indigo-900">💡 ගණිත විසඳුම</h3>
-              <button 
-                onClick={() => { setSolution(null); setSvgCode(null); }} 
-                className="bg-white hover:bg-rose-50 text-rose-500 px-3 py-1.5 rounded-xl border border-rose-100 text-xs font-bold transition"
-              >
-                වහන්න ✕
-              </button>
-            </div>
-            
-            <div className="p-6 sm:p-8 max-h-[80vh] overflow-y-auto">
-              {svgCode && (
-                <div className="mb-6 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex justify-center overflow-x-auto">
-                  <div dangerouslySetInnerHTML={{ __html: svgCode }} />
+          messages.map((msg) => (
+            <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"} items-end gap-2`}>
+              
+              {msg.sender === "ai" && (
+                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-lg shadow-sm mb-1 flex-shrink-0">
+                  🤖
                 </div>
               )}
 
-              <div className="prose prose-indigo max-w-none leading-relaxed text-slate-700 font-medium text-sm sm:text-base">
-                <ReactMarkdown
-                  remarkPlugins={[remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                >
-                  {solution}
-                </ReactMarkdown>
+              <div
+                className={`max-w-[85%] md:max-w-[75%] p-4 md:p-5 text-[15px] leading-relaxed shadow-md ${
+                  msg.sender === "user"
+                    ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-3xl rounded-br-sm"
+                    : "bg-white text-slate-800 rounded-3xl rounded-bl-sm border border-indigo-50"
+                }`}
+              >
+                <div className="prose prose-slate max-w-none font-medium opacity-90">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                  >
+                    {msg.text}
+                  </ReactMarkdown>
+                </div>
+
+                {msg.imageUrl && msg.imageUrl.startsWith("data:image/svg+xml") && (
+                  <div className="mt-4 p-4 bg-slate-50/50 rounded-2xl border border-indigo-100 flex justify-center items-center shadow-inner overflow-hidden">
+                    <img src={msg.imageUrl} alt="Math Diagram" className="max-w-full h-auto" />
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+
+        {loading && (
+          <div className="flex justify-start items-end gap-2">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-lg shadow-sm mb-1">
+              🤔
+            </div>
+            <div className="bg-white p-4 rounded-3xl rounded-bl-sm border border-indigo-50 shadow-sm flex items-center gap-2 text-indigo-500 font-medium text-sm">
+              ගණිත මිතුරා කල්පනා කරමින් සිටී
+              <div className="flex gap-1 ml-1">
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
               </div>
             </div>
           </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* Input Area */}
+      <div className="p-4 bg-gradient-to-t from-white via-white to-transparent pb-6">
+        <div className="max-w-4xl mx-auto flex gap-3 items-center bg-white p-2 rounded-full border border-indigo-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus-within:ring-2 focus-within:ring-indigo-200 transition-all">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            placeholder="බය නැතුව ඕනෑම ප්‍රශ්නයක් අහන්න... ✍️"
+            className="flex-1 px-4 py-3 bg-transparent text-[15px] focus:outline-none text-slate-700 placeholder-slate-400"
+          />
+          <button
+            onClick={() => handleSend()}
+            disabled={loading || !input.trim()}
+            className="w-12 h-12 flex items-center justify-center bg-indigo-600 text-white rounded-full hover:bg-indigo-700 hover:scale-105 transition-all disabled:opacity-50 disabled:hover:scale-100 shadow-md mr-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 ml-1">
+              <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+            </svg>
+          </button>
         </div>
-      )}
+        <p className="text-center text-[11px] text-slate-400 mt-3 font-medium">
+          ගණිත මිතුරා හට වැරදීම් සිදුවිය හැක. වැදගත් තොරතුරු නැවත පරීක්ෂා කරන්න.
+        </p>
+      </div>
 
       <UpgradeModal 
         isOpen={showUpgradeModal} 
@@ -300,7 +293,6 @@ export default function ScannerPage() {
         userEmail={userEmail}
       />
 
-      <canvas ref={canvasRef} className="hidden" />
-    </main>
+    </div>
   );
 }

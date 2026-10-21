@@ -61,14 +61,14 @@ export async function checkAndUpdateLimit(
 
   // 5. Limit පරීක්ෂාව
   if (featureType === "askQuestions") {
-    const maxLimit = isPaid ? 50 : 1; // Free: 2, Paid: 30
+    const maxLimit = isPaid ? 500 : 1; // Free: 2, Paid: 30
     if (dailyUsage.askQuestions >= maxLimit) {
       return { allowed: false, message: `අද දිනට හිමි ප්‍රශ්න ${maxLimit} සීමාව අවසන්!` };
     }
     dailyUsage.askQuestions += 1;
   } 
   else if (featureType === "photoScan") {
-    const maxLimit = isPaid ? 50 : 1; // Free: 1, Paid: 20
+    const maxLimit = isPaid ? 500 : 1; // Free: 1, Paid: 20
     if (dailyUsage.photoScan >= maxLimit) {
       return { allowed: false, message: `අද දිනට හිමි Photo Scan ${maxLimit} සීමාව අවසන්!` };
     }
