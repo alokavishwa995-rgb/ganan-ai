@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
     // 3. Vercel AI SDK හරහා Gemini Model එකෙන් Response Stream කිරීම
     const result = streamText({
-      model: google('gemini-1.5-flash'),
+      model: google('gemini-3.8-flash'),
       system: `ඔබ ශ්‍රී ලංකා අ.පො.ස. සාමාන්‍ය පෙළ (O/L) ගණිත ගුරුවරයා වන 'ගණිත මිතුරා' ය.
 
       ප්‍රධාන නීති:
