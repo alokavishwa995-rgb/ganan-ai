@@ -12,17 +12,23 @@ import { useLocalChat } from "@/hooks/useLocalChat";
 import { db } from "@/lib/firebase"; 
 import { doc, getDoc } from "firebase/firestore";
 
+// 🎯 AI Response එකෙන් SVG extraction සහ KaTeX \u200D Unicode Warning Fix කිරීම
 const parseAIResponse = (fullText: string) => {
-  const svgRegex = /<svg[\s\S]*?<\/svg>/;
-  const match = fullText.match(svgRegex);
-  
-  if (match) {
-    const svgCode = match[0];
-    const plainText = fullText.replace(svgRegex, "").trim(); 
-    return { text: plainText, svg: svgCode };
-  }
-  
-  return { text: fullText, svg: null };
+  const svgMatch = fullText.match(/\[\[SVG:\s*(<svg[\s\S]*?<\/svg>)\s*\]\]/) || fullText.match(/<svg[\s\S]*?<\/svg>/);
+  const svgCode = svgMatch ? (svgMatch[1] || svgMatch[0]) : null;
+
+  let plainText = fullText
+    .replace(/\[\[SVG:[\s\S]*?\]\]/g, "")
+    .replace(/\[\[SVG:[\s\S]*/g, "")
+    .replace(/<svg[\s\S]*?<\/svg>/g, "")
+    .trim();
+
+  // KaTeX Math සූත්‍ර ඇතුළතින් Zero-Width Joiner (\u200D) ඉවත් කිරීම
+  plainText = plainText.replace(/(\$\$[\s\S]*?\$\$|\$[^\$]+\$)/g, (match) =>
+    match.replace(/\u200D/g, "")
+  );
+
+  return { text: plainText, svg: svgCode };
 };
 
 export default function ScannerPage() {
@@ -128,10 +134,13 @@ export default function ScannerPage() {
     }
   };
 
+  // 🎯 Vercel AI SDK Stream එකට අනුකූලව Real-time Solution එක ලබා ගැනීම
   const sendToAI = async () => {
     if (!imgSrc || !userEmail) return;
     setLoading(true);
     setSvgCode(null);
+    setSolution(""); // Modal එක පෙන්වීමට Initialize කිරීම
+
     try {
       const res = await fetch("/api/scanner", {
         method: "POST",
@@ -146,31 +155,44 @@ export default function ScannerPage() {
         } else {
           alert("පොඩි සම්බන්ධතා දෝෂයක් ආවා. කරුණාකර නැවත 'විසඳුම ගන්න' ඔබන්න! 🚀");
         }
+        setSolution(null);
         setLoading(false);
         return;
       }
 
-      const data = await res.json();
-      
-      const rawText = data.text || data.solution;
-      if (rawText) {
-        const parsed = parseAIResponse(rawText);
-        setSolution(parsed.text);
-        setSvgCode(parsed.svg);
-
-        addMessage({
-          sender: "ai",
-          text: parsed.text,
-          imageUrl: parsed.svg ? `data:image/svg+xml;utf8,${encodeURIComponent(parsed.svg)}` : imgSrc,
-        });
-
-      } else {
-        const errorMsg = data.error || "කණගාටුයි, පිළිතුර ලබාගැනීමට නොහැකි වුණා.";
-        setSolution(errorMsg);
+      if (!res.ok || !res.body) {
+        throw new Error("Scanner request failed");
       }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        accumulatedText += chunk;
+
+        const parsed = parseAIResponse(accumulatedText);
+        setSolution(parsed.text);
+        if (parsed.svg) {
+          setSvgCode(parsed.svg);
+        }
+      }
+
+      const finalParsed = parseAIResponse(accumulatedText);
+      addMessage({
+        sender: "ai",
+        text: finalParsed.text,
+        imageUrl: finalParsed.svg ? `data:image/svg+xml;utf8,${encodeURIComponent(finalParsed.svg)}` : imgSrc,
+      });
+
     } catch (err) {
       console.error("Scanner API Error:", err);
       alert("පිළිතුර ලබාගැනීමට නොහැකි විය. නැවත උත්සාහ කරන්න!");
+      setSolution(null);
     } finally {
       setLoading(false);
     }
@@ -258,7 +280,7 @@ export default function ScannerPage() {
         )}
       </div>
 
-      {solution && (
+      {solution !== null && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 p-4 sm:p-6 overflow-y-auto flex justify-center items-start pt-10">
           <div className="max-w-3xl w-full bg-white rounded-3xl shadow-2xl border border-indigo-50 overflow-hidden my-auto">
             <div className="p-4 bg-slate-50 border-b border-indigo-50 flex justify-between items-center">
@@ -283,7 +305,7 @@ export default function ScannerPage() {
                   remarkPlugins={[remarkMath]}
                   rehypePlugins={[rehypeKatex]}
                 >
-                  {solution}
+                  {solution || "විසඳුම සකසමින් පවතී..."}
                 </ReactMarkdown>
               </div>
             </div>
