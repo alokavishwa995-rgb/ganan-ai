@@ -1,8 +1,13 @@
-import { google } from '@ai-sdk/google';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText } from 'ai';
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { checkAndUpdateLimit } from '@/lib/checkLimits';
+
+// 🎯 Vercel AI SDK එකට ඔයාගේ GEMINI_API_KEY එක සම්බන්ධ කිරීම
+const google = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
 
 // ----------------------------------------------------
 // GET: Chat History Load කිරීම
@@ -75,9 +80,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Vercel AI SDK හරහා Gemini Model එකෙන් Response Stream කිරීම
+    // 3. Vercel AI SDK හරහා gemini-1.5-flash Model එකෙන් Stream කිරීම
     const result = streamText({
-      model: google('gemini-3.8-flash'),
+      model: google('gemini-3.6-flash'),
       system: `ඔබ ශ්‍රී ලංකා අ.පො.ස. සාමාන්‍ය පෙළ (O/L) ගණිත ගුරුවරයා වන 'ගණිත මිතුරා' ය.
 
       ප්‍රධාන නීති:

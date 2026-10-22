@@ -15,6 +15,7 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  svgDiagram?: string; // 🎯 Diagram එක වෙනම Save කිරීමට
 }
 
 export default function ChatPage() {
@@ -29,7 +30,7 @@ export default function ChatPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // 🎯 1. Phone එකෙන් සහ Server එකෙන් History Load කිරීම
+  // 🎯 1. Phone එකේ LocalStorage එකෙන් සහ Server එකෙන් History Load කිරීම
   useEffect(() => {
     setIsClient(true);
     const email = localStorage.getItem("userEmail");
@@ -44,7 +45,7 @@ export default function ChatPage() {
 
     const storageKey = `gmath_chat_history_${cleanEmail}`;
 
-    // 📱 A. ළමයාගේ Phone එකේ LocalStorage එකෙන් මුලින්ම Fast Load කිරීම
+    // 📱 A. ළමයාගේ Phone එකේ LocalStorage එකෙන් මුලින්ම Instant Load කිරීම
     const localSaved = localStorage.getItem(storageKey);
     if (localSaved) {
       try {
@@ -74,7 +75,7 @@ export default function ChatPage() {
       }
     };
 
-    // ☁️ C. Server එකෙන් සැබෑ Chat History එක ලබාගෙන Sync කිරීම
+    // ☁️ C. Server එකෙන් Chat History එක ලබාගෙන Diagram එකත් සමඟ Sync කිරීම
     const fetchServerHistory = async () => {
       try {
         setIsHistoryLoading(true);
@@ -86,9 +87,10 @@ export default function ChatPage() {
             id: idx.toString(),
             role: m.role === "assistant" ? "assistant" : "user",
             content: m.content,
+            svgDiagram: m.svgDiagram || "", // 🎯 Database එකෙන් SVG Diagram එක එකතු කිරීම
           }));
           setMessages(serverMsgs);
-          // Phone එකේ LocalStorage එකත් Server Data වලින් Update කිරීම
+          // 📱 Phone එකේ LocalStorage එකත් Sync කිරීම
           localStorage.setItem(storageKey, JSON.stringify(serverMsgs));
         }
       } catch (err) {
@@ -123,10 +125,18 @@ export default function ChatPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  const extractSvgAndContent = (rawText: string) => {
+  // 🎯 SVG Extract කිරීම සහ KaTeX Unicode \u200D Warning එක Fix කිරීම
+  const extractSvgAndContent = (rawText: string, existingSvg?: string) => {
     const svgMatch = rawText.match(/\[\[SVG:\s*(<svg[\s\S]*?<\/svg>)\s*\]\]/);
-    const svgDiagram = svgMatch ? svgMatch[1] : "";
-    const cleanContent = rawText.replace(/\[\[SVG:[\s\S]*?\]\]/g, "").trim();
+    const extractedSvg = svgMatch ? svgMatch[1] : "";
+    const svgDiagram = extractedSvg || existingSvg || "";
+    let cleanContent = rawText.replace(/\[\[SVG:[\s\S]*?\]\]/g, "").trim();
+
+    // KaTeX Math සූත්‍ර ඇතුළතින් Zero-Width Joiner (\u200D) ඉවත් කිරීම (Console Warnings වැලැක්වීමට)
+    cleanContent = cleanContent.replace(/(\$\$[\s\S]*?\$\$|\$[^\$]+\$)/g, (match) =>
+      match.replace(/\u200D/g, "")
+    );
+
     return { cleanContent, svgDiagram };
   };
 
@@ -177,7 +187,7 @@ export default function ChatPage() {
       let aiText = "";
 
       const aiMsgId = (Date.now() + 1).toString();
-      setMessages((prev) => [...prev, { id: aiMsgId, role: "assistant", content: "" }]);
+      setMessages((prev) => [...prev, { id: aiMsgId, role: "assistant", content: "", svgDiagram: "" }]);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -185,8 +195,14 @@ export default function ChatPage() {
         const chunk = decoder.decode(value, { stream: true });
         aiText += chunk;
 
+        const { cleanContent, svgDiagram } = extractSvgAndContent(aiText);
+
         setMessages((prev) =>
-          prev.map((msg) => (msg.id === aiMsgId ? { ...msg, content: aiText } : msg))
+          prev.map((msg) =>
+            msg.id === aiMsgId
+              ? { ...msg, content: cleanContent, svgDiagram }
+              : msg
+          )
         );
       }
     } catch (err) {
@@ -254,7 +270,7 @@ export default function ChatPage() {
           </div>
         ) : (
           messages.map((msg) => {
-            const { cleanContent, svgDiagram } = extractSvgAndContent(msg.content);
+            const { cleanContent, svgDiagram } = extractSvgAndContent(msg.content, msg.svgDiagram);
 
             return (
               <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}>
@@ -280,6 +296,7 @@ export default function ChatPage() {
                     </ReactMarkdown>
                   </div>
 
+                  {/* 🎯 SVG Diagram එක 100% නිවැරදිව Render වීම */}
                   {svgDiagram && (
                     <div className="mt-4 p-4 bg-slate-50/50 rounded-2xl border border-indigo-100 flex justify-center items-center shadow-inner overflow-hidden">
                       <div dangerouslySetInnerHTML={{ __html: svgDiagram }} />
