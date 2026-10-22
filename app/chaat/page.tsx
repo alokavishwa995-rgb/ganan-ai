@@ -22,12 +22,14 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string>("");
   const [isClient, setIsClient] = useState(false);
   const [isProUser, setIsProUser] = useState(false); 
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // 🎯 1. Phone එකෙන් සහ Server එකෙන් History Load කිරීම
   useEffect(() => {
     setIsClient(true);
     const email = localStorage.getItem("userEmail");
@@ -37,11 +39,28 @@ export default function ChatPage() {
       return;
     }
     
-    setUserEmail(email);
+    const cleanEmail = email.toLowerCase();
+    setUserEmail(cleanEmail);
 
+    const storageKey = `gmath_chat_history_${cleanEmail}`;
+
+    // 📱 A. ළමයාගේ Phone එකේ LocalStorage එකෙන් මුලින්ම Fast Load කිරීම
+    const localSaved = localStorage.getItem(storageKey);
+    if (localSaved) {
+      try {
+        const parsed = JSON.parse(localSaved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        }
+      } catch (e) {
+        console.error("Local Storage Parse Error:", e);
+      }
+    }
+
+    // 👑 B. Live Firestore Database එකෙන් User PRO ද යන්න පරීක්ෂා කිරීම
     const checkLiveUserStatus = async () => {
       try {
-        const userRef = doc(db, "users", email.toLowerCase());
+        const userRef = doc(db, "users", cleanEmail);
         const userSnap = await getDoc(userRef);
         
         if (userSnap.exists()) {
@@ -55,7 +74,32 @@ export default function ChatPage() {
       }
     };
 
+    // ☁️ C. Server එකෙන් සැබෑ Chat History එක ලබාගෙන Sync කිරීම
+    const fetchServerHistory = async () => {
+      try {
+        setIsHistoryLoading(true);
+        const res = await fetch(`/api/chaat?userEmail=${encodeURIComponent(cleanEmail)}`);
+        const data = await res.json();
+
+        if (data.success && Array.isArray(data.messages) && data.messages.length > 0) {
+          const serverMsgs: Message[] = data.messages.map((m: any, idx: number) => ({
+            id: idx.toString(),
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+          }));
+          setMessages(serverMsgs);
+          // Phone එකේ LocalStorage එකත් Server Data වලින් Update කිරීම
+          localStorage.setItem(storageKey, JSON.stringify(serverMsgs));
+        }
+      } catch (err) {
+        console.error("History Fetch Error:", err);
+      } finally {
+        setIsHistoryLoading(false);
+      }
+    };
+
     checkLiveUserStatus();
+    fetchServerHistory();
 
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -67,6 +111,14 @@ export default function ChatPage() {
     }
   }, [router]);
 
+  // 📱 2. Message එකක් වෙනස් වන සෑම විටම ළමයාගේ Phone එකේ Auto Save වීම
+  useEffect(() => {
+    if (userEmail && messages.length > 0) {
+      const storageKey = `gmath_chat_history_${userEmail.toLowerCase()}`;
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    }
+  }, [messages, userEmail]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
@@ -76,6 +128,15 @@ export default function ChatPage() {
     const svgDiagram = svgMatch ? svgMatch[1] : "";
     const cleanContent = rawText.replace(/\[\[SVG:[\s\S]*?\]\]/g, "").trim();
     return { cleanContent, svgDiagram };
+  };
+
+  // 🗑️ History එක සම්පූර්ණයෙන්ම මකා දැමීම (State + LocalStorage)
+  const handleClearHistory = () => {
+    setMessages([]);
+    if (userEmail) {
+      const storageKey = `gmath_chat_history_${userEmail.toLowerCase()}`;
+      localStorage.removeItem(storageKey);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -166,7 +227,7 @@ export default function ChatPage() {
         
         {messages.length > 0 ? (
           <button
-            onClick={() => setMessages([])}
+            onClick={handleClearHistory}
             className="text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 px-3 py-1.5 rounded-xl border border-rose-200 transition"
           >
             History මකන්න 🗑️
@@ -178,7 +239,11 @@ export default function ChatPage() {
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 max-w-4xl w-full mx-auto">
-        {messages.length === 0 && (
+        {isHistoryLoading && messages.length === 0 ? (
+          <div className="flex justify-center items-center h-full text-indigo-500 font-medium animate-pulse">
+            සංවාද සටහන් Load වෙමින් පවතී... ⌛
+          </div>
+        ) : messages.length === 0 ? (
           <div className="bg-white p-5 rounded-3xl border border-indigo-100 shadow-sm flex items-start gap-3 max-w-[85%]">
             <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-lg flex-shrink-0">
               🤖
@@ -187,44 +252,44 @@ export default function ChatPage() {
               ආයුබෝවන් යාලුවා! 🌟 මම ඔයාගේ 'ගණිත මිතුරා'. ගණිතය කියන්නේ ගේම් එකක් වගේ හරිම විනෝදජනක දෙයක්. ඔයාට අමාරු ඕනෑම තැනක් මගෙන් අහන්න. අපි එකතුවෙලා ලේසියෙන්ම විසඳමු! 💪
             </p>
           </div>
-        )}
+        ) : (
+          messages.map((msg) => {
+            const { cleanContent, svgDiagram } = extractSvgAndContent(msg.content);
 
-        {messages.map((msg) => {
-          const { cleanContent, svgDiagram } = extractSvgAndContent(msg.content);
-
-          return (
-            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}>
-              {msg.role !== "user" && (
-                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-lg shadow-sm mb-1 flex-shrink-0">
-                  🤖
-                </div>
-              )}
-
-              <div
-                className={`max-w-[85%] md:max-w-[75%] p-4 md:p-5 text-[15px] leading-relaxed shadow-md ${
-                  msg.role === "user"
-                    ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-3xl rounded-br-sm"
-                    : "bg-white text-slate-800 rounded-3xl rounded-bl-sm border border-indigo-50"
-                }`}
-              >
-                <div className="prose prose-slate max-w-none font-medium opacity-90">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
-                  >
-                    {cleanContent}
-                  </ReactMarkdown>
-                </div>
-
-                {svgDiagram && (
-                  <div className="mt-4 p-4 bg-slate-50/50 rounded-2xl border border-indigo-100 flex justify-center items-center shadow-inner overflow-hidden">
-                    <div dangerouslySetInnerHTML={{ __html: svgDiagram }} />
+            return (
+              <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} items-end gap-2`}>
+                {msg.role !== "user" && (
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-lg shadow-sm mb-1 flex-shrink-0">
+                    🤖
                   </div>
                 )}
+
+                <div
+                  className={`max-w-[85%] md:max-w-[75%] p-4 md:p-5 text-[15px] leading-relaxed shadow-md ${
+                    msg.role === "user"
+                      ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-3xl rounded-br-sm"
+                      : "bg-white text-slate-800 rounded-3xl rounded-bl-sm border border-indigo-50"
+                  }`}
+                >
+                  <div className="prose prose-slate max-w-none font-medium opacity-90">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                    >
+                      {cleanContent}
+                    </ReactMarkdown>
+                  </div>
+
+                  {svgDiagram && (
+                    <div className="mt-4 p-4 bg-slate-50/50 rounded-2xl border border-indigo-100 flex justify-center items-center shadow-inner overflow-hidden">
+                      <div dangerouslySetInnerHTML={{ __html: svgDiagram }} />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
 
         {isLoading && (
           <div className="flex justify-start items-end gap-2">
