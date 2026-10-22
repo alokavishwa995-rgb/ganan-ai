@@ -2,17 +2,38 @@ export const maxDuration = 60; // තත්පර 60ක උපරිම කා�
 
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// 🔒 Vercel AI SDK එකට API Key එක සම්බන්ධ කිරීම
+const google = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
 
-// දවසේ දිනය ලබා ගැනීම (උදා: "2026-10-18")
+// දවසේ දිනය ලබා ගැනීම (උදා: "2026-10-22")
 const getTodayDateStr = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-// 1. අද දවසට අදාළ ප්‍රශ්න 10 ගැනීම හෝ අලුතින් හැදීම
+// 🎯 Vercel AI SDK සඳහා Zod Schema එක (ප්‍රශ්න 10 හි ආකෘතිය)
+const dailyChallengeSchema = z.object({
+  questions: z.array(
+    z.object({
+      id: z.number(),
+      category: z.string(),
+      question: z.string(),
+      options: z.array(z.string()).length(4),
+      correctAnswer: z.string(),
+      svgDiagram: z.string().optional().describe('ජ්‍යාමිතිය, ප්‍රස්තාර, මිනුම් හෝ ත්‍රිකෝණමිතිය සඳහා අවශ්‍ය නම් පමණක් පිරිසිදු <svg>...</svg> කේතය ලබා දෙන්න, නැතහොත් හිස්ව තබන්න.'),
+    })
+  ).length(10),
+});
+
+// ----------------------------------------------------
+// 1. GET: අද දවසට අදාළ ප්‍රශ්න 10 ගැනීම හෝ අලුතින් හැදීම
+// ----------------------------------------------------
 export async function GET() {
   const today = getTodayDateStr();
   const docRef = adminDb.collection('daily_challenges').doc(today);
@@ -25,46 +46,49 @@ export async function GET() {
       return NextResponse.json({ success: true, challenge: docSnap.data()?.questions });
     }
 
-    // අද දවසට ප්‍රශ්න නැත්නම් (පළවෙනි ළමයා ආවම), අලුතින් ප්‍රශ්න 10ක් හදනවා
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
-    const prompt = `
-      ඔබ ශ්‍රී ලංකාවේ සාමාන්‍ය පෙළ (O/L) ගණිත ගුරුවරයෙකි.
-      අද දවසේ අභියෝගය සඳහා O/L විෂය නිර්දේශයෙන් (වීජ ගණිතය, ජ්‍යාමිතිය, කුලක, ප්‍රතිශත ආදී) 
-      කෙටි ප්‍රශ්න 10ක් සිංහල මාධ්‍යයෙන් සාදන්න. 
-      හැම ප්‍රශ්නයකටම උත්තර 4ක් (MCQ) ලබා දෙන්න.
+    // 🎯 අද දවසට ප්‍රශ්න නැත්නම් (පළවෙනි ළමයා ආවම), O/L ආකෘතියට ප්‍රශ්න 10ක් හදනවා
+    const { object } = await generateObject({
+      model: google('gemini-3.6-flash'),
+      schema: dailyChallengeSchema,
+      prompt: `
+        ඔබ ශ්‍රී ලංකා අ.පො.ස. සාමාන්‍ය පෙළ (O/L) ගණිත ගුරුවරයා වේ.
+        අද දවසේ Daily Challenge එක සඳහා O/L ගණිතය 1 වන ප්‍රශ්න පත්‍රයේ ආකෘතියට අනුකූලව පහත සඳහන් මාතෘකා 10න් පිළිවෙළින් MCQ ප්‍රශ්න 10ක් සාදන්න:
 
-      පහත දැක්වෙන JSON ආකෘතියෙන් පමණක් පිළිතුර ලබා දෙන්න (වෙනත් කිසිදු අකුරක් එපා):
-      [
-        {
-          "id": 1,
-          "question": "ප්‍රශ්නය මෙතනින්...",
-          "options": ["A උත්තරය", "B උත්තරය", "C උත්තරය", "D උත්තරය"],
-          "correctAnswer": "A උත්තරය"
-        }
-      ]
-    `;
+        1 වෙනි ප්‍රශ්නය - සංඛ්‍යා (HCF/LCM, වර්ගමූලය, දළ ගණනය, හෝ සම්මත ආකාරය)
+        2 වෙනි ප්‍රශ්නය - මුදල් හා වාණිජ ගණිතය (ප්‍රතිශතය, අනුපාතය, ලාභ-අලාභ, කොමිස්, හෝ පොලී)
+        3 වෙනි ප්‍රශ්නය - වීජ ගණිතය 1 (සාධක කිරීම, වීජීය ප්‍රකාශන, හෝ දර්ශක නීති)
+        4 වෙනි ප්‍රශ්නය - වීජ ගණිතය 2 (සමීකරණ, අසමීකරණ, හෝ කුලක)
+        5 වෙනි ප්‍රශ්නය - ජ්‍යාමිතිය 1 (කෝණ, ත්‍රිකෝණ, සිව්කොන්, සමාන්තරාසර කෝණ) -> අවශ්‍ය නම් <svg> රූපසටහනක් එකතු කරන්න.
+        6 වෙනි ප්‍රශ්නය - ජ්‍යාමිතිය 2 (පරිමිතිය, වර්ගඵලය, හෝ පයිතගරස් ප්‍රමේයය) -> අවශ්‍ය නම් <svg> රූපසටහනක් එකතු කරන්න.
+        7 වෙනි ප්‍රශ්නය - ප්‍රස්තාර (සරල රේඛා ප්‍රස්තාර, ශ්‍රිත, හෝ ඛණ්ඩාංක) -> අවශ්‍ය නම් <svg> රූපසටහනක් එකතු කරන්න.
+        8 වෙනි ප්‍රශ්නය - ත්‍රිකෝණමිතිය (sin, cos, tan, උන්නතාංශ/අවනතාංශ) -> අවශ්‍ය නම් <svg> රූපසටහනක් එකතු කරන්න.
+        9 වෙනි ප්‍රශ්නය - මිනුම් (සිලින්ඩර, කේතු, ගෝල, හෝ ඝනක පරිමාව/වර්ගඵලය) -> අවශ්‍ය නම් <svg> රූපසටහනක් එකතු කරන්න.
+        10 වෙනි ප්‍රශ්නය - දත්ත හා සම්භාවිතාව (සංඛ්‍යාලේඛන, මධ්‍යන්‍ය, මාධ්‍යස්ථ, හෝ සම්භාවිතාව)
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    
-    // JSON කොටස පමණක් වෙන් කරගැනීම
-    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) throw new Error("JSON Parse Error");
-    
-    const questions = JSON.parse(jsonMatch[0]);
+        නීති රීති:
+        - සියලුම ප්‍රශ්න, ප්‍රකාශන සහ පිළිතුරු 100%ක් පිරිසිදු සිංහල භාෂාවෙන් තිබිය යුතුය.
+        - ගණිතමය සූත්‍ර සඳහා KaTeX/LaTeX ආකෘතිය ($...$ හෝ $$...$$) භාවිත කරන්න.
+        - සෑම ප්‍රශ්නයකටම වෙනස් වෙනස් උත්තර 4ක් (options) ලබාදී, නිවැරදි උත්තරය correctAnswer ලෙස සටහන් කරන්න.
+        - 5, 6, 7, 8, 9 යන ප්‍රශ්න සඳහා රූපසටහනක් පැහැදිලි කිරීමට අවශ්‍ය නම් පමණක් svgDiagram සඳහා පිරිසිදු HTML <svg>...</svg> කේතය ලබා දෙන්න.
+      `,
+    });
+
+    const questions = object.questions;
 
     // හදපු ප්‍රශ්න 10 Database එකේ සේව් කිරීම (අනිත් අයට පෙන්වන්න)
     await docRef.set({ questions, createdAt: new Date().toISOString() });
 
     return NextResponse.json({ success: true, challenge: questions });
 
-  } catch (error) {
-    console.error("Daily Challenge Error:", error);
+  } catch (error: any) {
+    console.error("Daily Challenge Error:", error?.message || error);
     return NextResponse.json({ success: false, error: "අද දවසේ අභියෝගය සකස් කිරීමට නොහැකි විය." }, { status: 500 });
   }
 }
 
-// 2. ළමයාගේ උත්තර පරික්ෂා කර ලකුණු ලබාදීම සහ Leaderboard එකට දැමීම
+// ----------------------------------------------------
+// 2. POST: ළමයාගේ උත්තර පරික්ෂා කර ලකුණු ලබාදීම සහ Leaderboard එකට දැමීම
+// ----------------------------------------------------
 export async function POST(request: Request) {
   try {
     const { userEmail, userName, userAnswers, timeSpent } = await request.json();
@@ -87,11 +111,13 @@ export async function POST(request: Request) {
       }
     });
 
+    const cleanEmail = userEmail.trim().toLowerCase();
+
     // Leaderboard එකට ළමයාගේ දත්ත දැමීම
-    const leaderboardRef = docRef.collection('leaderboard').doc(userEmail);
+    const leaderboardRef = docRef.collection('leaderboard').doc(cleanEmail);
     await leaderboardRef.set({
-      name: userName,
-      email: userEmail,
+      name: userName || "Student",
+      email: cleanEmail,
       score: score,
       timeSpent: timeSpent, // තත්පර ගණන
       submittedAt: new Date().toISOString()
@@ -108,8 +134,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, score, leaderboard });
 
-  } catch (error) {
-    console.error("Score Submit Error:", error);
+  } catch (error: any) {
+    console.error("Score Submit Error:", error?.message || error);
     return NextResponse.json({ success: false, error: "ලකුණු ඇතුළත් කිරීම අසාර්ථක විය." }, { status: 500 });
   }
 }
