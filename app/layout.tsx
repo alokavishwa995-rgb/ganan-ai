@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
@@ -16,7 +16,21 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "GanithaMithura AI",
-  description: "O/L Mathematics Practice App",
+  description: "AI-powered O/L Mathematics Practice App - ඔබේ ගණිත ගමනේ හොඳම මිතුරා!",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "GanithaMithura",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b132b",
 };
 
 export default function RootLayout({

@@ -347,7 +347,6 @@ export default function ChatPage() {
           </button>
         </div>
         <p className="text-center text-[11px] text-slate-400 mt-3 font-medium">
-          ගණිත මිතුරා හට වැරදීම් සිදුවිය හැක. වැදගත් තොරතුරු නැවත පරීක්ෂා කරන්න.
         </p>
       </form>
 
