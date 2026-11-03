@@ -2,13 +2,13 @@ import Link from 'next/link';
 
 export default function PrivacyPolicy() {
   return (
-    <main className="min-h-screen bg-slate-900 text-white p-6 md:p-12 max-w-4xl mx-auto font-sans leading-relaxed">
-      <Link href="/" className="text-blue-400 text-sm hover:underline mb-6 inline-block">
-        ← ආපසු Home පිටුවට
+    <main className="min-h-screen bg-slate-950 text-white p-6 md:p-12 max-w-4xl mx-auto font-sans leading-relaxed">
+      <Link href="/login" className="text-emerald-400 text-sm hover:underline mb-6 inline-block font-semibold">
+        ← Back to Account Page
       </Link>
       
-      <h1 className="text-3xl font-extrabold mb-2 text-blue-400">Privacy Policy</h1>
-      <p className="text-slate-400 text-sm mb-8">ලද අවසාන යාවත්කාලීන කිරීම: 2026 ඔක්තෝබර් 26</p>
+      <h1 className="text-3xl font-extrabold mb-2 text-emerald-400">Privacy Policy</h1>
+      <p className="text-slate-400 text-sm mb-8">Last Updated: October 26, 2026</p>
 
       <section className="space-y-6 text-slate-300">
         <div>
@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
 
         <div>
           <h2 className="text-xl font-bold text-white mb-2">2. Information We Collect</h2>
-          <ul className="list-disc pl-5 space-y-1">
+          <ul className="list-disc pl-5 space-y-1 text-slate-300 text-sm">
             <li><strong>Account Data:</strong> Name, Email address provided during registration.</li>
             <li><strong>Usage & Input Data:</strong> Questions, text, or images scanned for mathematical problem solving.</li>
             <li><strong>Payment Data:</strong> Payment processing is handled securely by PayHere. We do not store your credit card or banking details directly on our servers.</li>
@@ -29,8 +29,8 @@ export default function PrivacyPolicy() {
 
         <div>
           <h2 className="text-xl font-bold text-white mb-2">3. How We Use Your Information</h2>
-          <p>We use the collected information to:</p>
-          <ul className="list-disc pl-5 space-y-1">
+          <p className="mb-2">We use the collected information to:</p>
+          <ul className="list-disc pl-5 space-y-1 text-slate-300 text-sm">
             <li>Provide and improve AI-assisted educational features.</li>
             <li>Manage user accounts and subscriptions.</li>
             <li>Send important updates regarding your account or service.</li>
@@ -46,8 +46,8 @@ export default function PrivacyPolicy() {
 
         <div>
           <h2 className="text-xl font-bold text-white mb-2">5. Contact Us</h2>
-          <p>If you have any questions about this Privacy Policy, please contact us at:</p>
-          <p className="font-semibold text-blue-300 mt-1">Email: support@ganan.com.lk</p>
+          <p className="text-sm">If you have any questions about this Privacy Policy, please contact us at:</p>
+          <p className="font-semibold text-emerald-400 mt-1 text-sm">Email: ganithamithura52@gmail.com</p>
         </div>
       </section>
     </main>

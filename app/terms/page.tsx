@@ -2,13 +2,13 @@ import Link from 'next/link';
 
 export default function TermsAndConditions() {
   return (
-    <main className="min-h-screen bg-slate-900 text-white p-6 md:p-12 max-w-4xl mx-auto font-sans leading-relaxed">
-      <Link href="/" className="text-blue-400 text-sm hover:underline mb-6 inline-block">
-        ← ආපසු Home පිටුවට
+    <main className="min-h-screen bg-slate-950 text-white p-6 md:p-12 max-w-4xl mx-auto font-sans leading-relaxed">
+      <Link href="/login" className="text-emerald-400 text-sm hover:underline mb-6 inline-block font-semibold">
+        ← Back to Account Page
       </Link>
       
-      <h1 className="text-3xl font-extrabold mb-2 text-blue-400">Terms & Conditions</h1>
-      <p className="text-slate-400 text-sm mb-8">ලද අවසාන යාවත්කාලීන කිරීම: 2026 ඔක්තෝබර් 26</p>
+      <h1 className="text-3xl font-extrabold mb-2 text-emerald-400">Terms & Conditions</h1>
+      <p className="text-slate-400 text-sm mb-8">Last Updated: October 26, 2026</p>
 
       <section className="space-y-6 text-slate-300">
         <div>
@@ -48,7 +48,7 @@ export default function TermsAndConditions() {
 
         <div>
           <h2 className="text-xl font-bold text-white mb-2">6. Contact Information</h2>
-          <p className="font-semibold text-blue-300">Email: support@ganan.com.lk</p>
+          <p className="font-semibold text-emerald-400">Email:ganithamithura52@gmail.com</p>
         </div>
       </section>
     </main>

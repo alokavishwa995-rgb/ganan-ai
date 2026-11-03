@@ -65,7 +65,7 @@ export default function RefundPolicy() {
           <p className="text-sm">
             To submit a refund request, please email our support team with your registered email address and transaction ID:
           </p>
-          <p className="font-bold text-emerald-400 mt-1 text-sm">Email: support@ganan.com.lk</p>
+          <p className="font-bold text-emerald-400 mt-1 text-sm">Email:ganithamithura52@gmail.com</p>
         </div>
 
       </section>
