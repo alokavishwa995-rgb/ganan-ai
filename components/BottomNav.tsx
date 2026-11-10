@@ -6,38 +6,46 @@ import { usePathname } from "next/navigation";
 export default function BottomNav() {
   const pathname = usePathname();
 
- const navItems = [
+  // 🚫 Chat පිටුවේදී සහ Photo Scanner පිටුවේදී BottomNav එක Hide කරයි
+  if (pathname === "/chaat" || pathname === "/scanner") {
+    return null;
+  }
+
+  const navItems = [
     { name: "Home", href: "/", icon: "🏠" },
     { name: "Theory", href: "/formulas", icon: "📖" },
     { name: "Auto Graph", href: "/grader", icon: "📊" },
     { name: "Account", href: "/login", icon: "👤" },
   ];
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex justify-center pb-3 pt-2 px-4 pointer-events-none">
-      <div className="w-full max-w-md bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-full shadow-2xl py-2 px-6 flex justify-around items-center pointer-events-auto">
+    <div className="fixed bottom-4 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
+      <nav className="w-full max-w-sm sm:max-w-md bg-slate-900/90 dark:bg-slate-950/90 backdrop-blur-xl border border-slate-800/80 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.35)] py-2 px-5 flex justify-around items-center pointer-events-auto transition-all">
         {navItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-          
+
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={`flex flex-col items-center transition-all ${
+              className={`flex flex-col items-center gap-0.5 transition-all ${
                 isActive
-                  ? "text-blue-600 dark:text-blue-400 font-bold scale-105"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                  ? "text-blue-400 font-bold scale-105"
+                  : "text-slate-400 hover:text-slate-200 opacity-70 hover:opacity-100"
               }`}
             >
-              <div className={`p-2 rounded-2xl transition-all ${
-                isActive ? "bg-blue-100 dark:bg-blue-950/80" : ""
+              <div className={`p-1.5 rounded-2xl transition-all ${
+                isActive 
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30" 
+                  : "hover:bg-slate-800/50"
               }`}>
-                <span className="text-xl block">{item.icon}</span>
+                <span className="text-base block">{item.icon}</span>
               </div>
-              <span className="text-[11px] mt-0.5">{item.name}</span>
+              <span className="text-[10px] font-bold">{item.name}</span>
             </Link>
           );
         })}
-      </div>
-    </nav>
+      </nav>
+    </div>
   );
 }
