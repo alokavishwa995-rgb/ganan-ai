@@ -81,7 +81,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className={`min-h-screen pb-28 font-sans transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#f0f4fb] text-slate-900'}`}>
+    <main className={`min-h-screen pb-10 font-sans transition-colors duration-300 ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-[#f0f4fb] text-slate-900'}`}>
       
       {/* --- Header with Curved Design --- */}
       <div className={`pt-10 pb-8 px-6 rounded-b-[36px] shadow-2xl relative overflow-hidden transition-colors duration-300 ${
@@ -122,16 +122,15 @@ export default function HomePage() {
               <NotificationDropdown userEmail={userEmail} />
             </div>
             
-            {/* Cleaned Logo Badge */}
-            <div className="relative w-14 h-14 flex items-center justify-center">
-              <img 
-                src="/logo.png" 
-                alt="GanithaMithura Logo" 
-                className="w-14 h-14 object-contain drop-shadow-lg"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/android-chrome-192x192.png';
-                }}
-              />
+            {/* 🤖 Modern 3D AI Robot Avatar Badge (Replaced Image Logo) */}
+            <div className="relative w-13 h-13 flex items-center justify-center rounded-2xl bg-gradient-to-tr from-cyan-400 via-blue-500 to-indigo-600 p-[2px] shadow-lg shadow-cyan-500/25">
+              <div className="w-full h-full bg-slate-900/90 rounded-[14px] flex items-center justify-center backdrop-blur-md">
+                <span className="text-2xl drop-shadow-[0_0_10px_rgba(34,211,238,0.6)]">🤖</span>
+              </div>
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+              </span>
             </div>
           </div>
         </div>
@@ -156,14 +155,12 @@ export default function HomePage() {
                 <span className="drop-shadow-sm">{f.icon}</span>
               </div>
               
-              {/* Title color explicit setting for Light and Dark modes */}
               <h3 className={`font-extrabold text-base mb-1 tracking-tight transition-colors ${
                 isDarkMode ? 'text-white' : 'text-slate-900'
               }`}>
                 {f.title}
               </h3>
               
-              {/* Description color explicit setting */}
               <p className={`text-[11px] leading-relaxed line-clamp-2 ${
                 isDarkMode ? 'text-slate-400' : 'text-slate-600'
               }`}>
@@ -173,39 +170,6 @@ export default function HomePage() {
           </Link>
         ))}
       </div>
-
-      {/* --- Bottom Navigation --- */}
-      <nav className={`fixed bottom-0 left-0 right-0 shadow-[0_-10px_35px_rgba(0,0,0,0.1)] rounded-t-[32px] px-6 py-3 flex justify-around items-center z-50 transition-colors duration-300 backdrop-blur-xl ${
-        isDarkMode ? 'bg-slate-950/95 border-t border-slate-800/80' : 'bg-white/95 border-t border-slate-200'
-      }`}>
-        <Link href="/" className="flex flex-col items-center gap-1 cursor-pointer group">
-          <div className="px-4 py-1.5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 transition-all group-hover:scale-105 flex items-center justify-center">
-            <span className="text-base">🏠</span>
-          </div>
-          <span className={`text-[10px] font-bold ${isDarkMode ? 'text-cyan-400' : 'text-blue-600'}`}>Home</span>
-        </Link>
-
-        <Link href="/formulas" className="flex flex-col items-center gap-1 cursor-pointer opacity-70 hover:opacity-100 transition-all group">
-          <div className="p-1.5 rounded-xl group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
-            <span className="text-xl">📖</span>
-          </div>
-          <span className={`text-[10px] font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-700'}`}>Theory</span>
-        </Link>
-
-        <Link href="/grader" className="flex flex-col items-center gap-1 cursor-pointer opacity-70 hover:opacity-100 transition-all group">
-          <div className="p-1.5 rounded-xl group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
-            <span className="text-xl">📊</span>
-          </div>
-          <span className={`text-[10px] font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-700'}`}>Auto Graph</span>
-        </Link>
-
-        <Link href="/login" className="flex flex-col items-center gap-1 cursor-pointer opacity-70 hover:opacity-100 transition-all group">
-          <div className="p-1.5 rounded-xl group-hover:bg-slate-100 dark:group-hover:bg-slate-800 transition-colors">
-            <span className="text-xl">👤</span>
-          </div>
-          <span className={`text-[10px] font-semibold ${isDarkMode ? 'text-slate-400' : 'text-slate-700'}`}>Account</span>
-        </Link>
-      </nav>
 
     </main>
   );

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import BottomNav from "@/components/BottomNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,10 +44,14 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-300">
+      <body className="min-h-full flex flex-col bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative">
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <main className="flex-1">
+              {children}
+            </main>
+            {/* හැම පිටුවකම පෙනෙන පරිදි Bottom Navigation එක මෙතැනට එකතු කර ඇත */}
+            <BottomNav />
           </AuthProvider>
         </ThemeProvider>
       </body>
