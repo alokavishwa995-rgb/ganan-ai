@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import UpgradeModal from "@/components/UpgradeModal";
@@ -13,13 +14,12 @@ export default function PricingPage() {
     const email = localStorage.getItem("userEmail") || "";
     setUserEmail(email);
 
-    // 💡 PayHere එකෙන් සල්ලි ගෙවලා return_url එක හරහා ආපහු මේ පිටුවට ආවම 
+    // 💡 PayHere එකෙන් සල්ලි ගෙවලා return_url එක හරහා ආපහු මේ පිටුවට ආවම
     const searchParams = new URLSearchParams(window.location.search);
     const status = searchParams.get("status");
     const returnEmail = searchParams.get("email") || email;
 
     if (status === "success" && returnEmail) {
-      // ඩේටාබේස් එක Pro Package එකට Update කිරීම
       fetch("/api/upgrade-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -30,7 +30,7 @@ export default function PricingPage() {
           if (data.success) {
             alert("🎉 ඔබගේ ගෙවීම සාර්ථකයි! Pro Package එක Active විය.");
             window.history.replaceState({}, document.title, window.location.pathname);
-            router.push("/chaat"); // Chat එකට යැවීම
+            router.push("/chaat");
           }
         })
         .catch((err) => {
@@ -49,63 +49,181 @@ export default function PricingPage() {
       router.push("/login");
       return;
     }
-    // 💡 Upgrade Modal එක පෙන්වීම (මෙය මඟින් Hash සහ නිවැරදි විස්තර PayHere වෙත යවයි)
     setShowUpgradeModal(true);
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-      <h1 className="text-3xl font-bold mb-2 text-slate-800">ගණිත මිතුරා Packages</h1>
-      <p className="text-slate-500 mb-8">ඔයාට ගැලපෙන Plan එක තෝරාගන්න</p>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 py-10 font-sans">
+      {/* Top Back Navigation */}
+      <div className="max-w-4xl w-full mb-6 flex justify-between items-center">
+        <Link
+          href="/login"
+          className="text-emerald-400 text-sm font-semibold hover:underline flex items-center gap-1"
+        >
+          ← Back to Account / Login
+        </Link>
+        <span className="text-xs font-semibold text-slate-400">GanithaMithura AI</span>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full">
-        {/* Free Plan Card */}
-        <div className="bg-white p-6 rounded-2xl border shadow-sm flex flex-col justify-between">
+      {/* Page Title */}
+      <div className="text-center mb-8">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+          ගණිත මිතුරා Packages
+        </h1>
+        <p className="text-slate-400 text-xs sm:text-sm mt-1">
+          ඔබට ගැළපෙන සාමාජිකත්වය තෝරාගන්න (Plans & Pricing)
+        </p>
+      </div>
+
+      {/* Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full items-stretch">
+        
+        {/* 1. Free Plan Card */}
+        <div className="bg-white p-6 sm:p-8 rounded-[28px] shadow-xl border border-slate-100 flex flex-col justify-between text-center">
           <div>
-            <h2 className="text-xl font-bold text-slate-700">Free Plan</h2>
-            <p className="text-3xl font-extrabold my-4">රු. 0 <span className="text-sm font-normal text-slate-500">/මාසෙට</span></p>
-            <ul className="space-y-2 text-sm text-slate-600 mb-6">
-              <li>✅ දවසට Ask Questions 1යි</li>
-              <li>✅ දවසට Photo Scan 1යි</li>
-              <li>❌ Paper Generator නැත</li>
-            </ul>
+            <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl">
+              📘
+            </div>
+            <h2 className="text-xl font-extrabold text-slate-800">
+              Free Package (නොමිලේ)
+            </h2>
+
+            {/* Soft Slate Price Box */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 my-5">
+              <p className="text-xs font-semibold text-slate-500 mb-1">
+                මූලික සාමාජිකත්වය
+              </p>
+              <div className="flex items-baseline justify-center gap-1.5">
+                <span className="text-3xl sm:text-4xl font-black text-slate-800">
+                  රු. 0
+                </span>
+                <span className="text-xs sm:text-sm font-medium text-slate-500">
+                  / මාසයකට
+                </span>
+              </div>
+              <p className="text-[11px] font-semibold text-slate-400 mt-1">
+                (LKR 0.00 / Month)
+              </p>
+            </div>
+
+            {/* Features Box */}
+            <div className="bg-slate-50/80 rounded-2xl p-4 text-left space-y-2.5 mb-6 border border-slate-100">
+              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-600 font-medium">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <span>දෛනික AI ප්‍රශ්න ඇසීම (දිනකට 1යි)</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-600 font-medium">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <span>දෛනික Photo Scan (දිනකට 1යි)</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-600 font-medium">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <span>මූලික ගණිත සූත්‍ර සහ පාඩම් පරිශීලනය</span>
+              </div>
+            </div>
           </div>
-          <button 
-            onClick={() => router.push("/chaat")}
-            className="w-full bg-slate-200 text-slate-700 font-bold p-3 rounded-xl hover:bg-slate-300 transition cursor-pointer"
-          >
-            දැනට භාවිතා කරන්න
-          </button>
+
+          <div>
+            <button
+              onClick={() => router.push("/chaat")}
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold p-3.5 rounded-2xl transition-all text-sm cursor-pointer"
+            >
+              නොමිලේ භාවිතා කරන්න
+            </button>
+          </div>
         </div>
 
-        {/* Paid Plan Card */}
-        <div className="bg-white p-6 rounded-2xl border-2 border-emerald-500 shadow-xl flex flex-col justify-between relative overflow-hidden">
-          <span className="absolute top-3 right-3 bg-emerald-100 text-emerald-700 text-xs font-bold px-3 py-1 rounded-full">RECOMMENDED</span>
-          
+        {/* 2. Pro Package Card (Matching Screenshot Design) */}
+        <div className="bg-white p-6 sm:p-8 rounded-[28px] shadow-2xl border-2 border-amber-200/80 flex flex-col justify-between text-center relative overflow-hidden">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">Pro Monthly Package</h2>
-            <p className="text-3xl font-extrabold text-emerald-600 my-4">රු. 300.00 <span className="text-sm font-normal text-slate-500">/මාසෙට</span></p>
-            <ul className="space-y-2 text-sm text-slate-700 mb-6">
-              <li>✅ දවසට Ask Questions 50යි</li>
-              <li>✅ දවසට Photo Scan 50යි</li>
-              <li>✅ මාසෙට Paper Generator 10යි</li>
-              <li>✅ Instant AI Help</li>
-            </ul>
+            {/* Rocket Badge */}
+            <div className="w-12 h-12 bg-amber-50 border border-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-sm">
+              🚀
+            </div>
+
+            <h2 className="text-xl font-extrabold text-slate-800">
+              Pro Package එකට Upgrade වන්න
+            </h2>
+
+            {/* Warm Amber / Cream Price Box (From Screenshot) */}
+            <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-4 my-5">
+              <p className="text-xs font-bold text-amber-700 mb-1">
+                මාසික සාමාජිකත්වය
+              </p>
+              <div className="flex items-baseline justify-center gap-1.5">
+                <span className="text-3xl sm:text-4xl font-black text-[#78350F]">
+                  රු. 300
+                </span>
+                <span className="text-xs sm:text-sm font-semibold text-slate-600">
+                  / මාසයකට
+                </span>
+              </div>
+              <p className="text-[11px] font-bold text-amber-800/70 mt-1">
+                (LKR 300.00 / Month)
+              </p>
+            </div>
+
+            {/* Features Box (Exact Items from Screenshot) */}
+            <div className="bg-slate-50/90 rounded-2xl p-4 text-left space-y-2.5 mb-6 border border-slate-100">
+              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700 font-medium">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <span>දෛනික AI ප්‍රශ්න ඇසීම Unlimited</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700 font-medium">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <span>දෛනික Photo Scan Unlimited</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700 font-medium">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <span>දවසේ අභියෝගය (Daily Challenge) සීමා රහිත ප්‍රවේශය</span>
+              </div>
+              <div className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700 font-medium">
+                <span className="text-emerald-600 font-bold">✓</span>
+                <span>දින 30ක පූර්ණ ප්‍රවේශය (Full Pro Access)</span>
+              </div>
+            </div>
           </div>
 
-          <button 
-            onClick={handlePaymentClick}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold p-3 rounded-xl shadow-md transition cursor-pointer"
-          >
-            රු. 300 ගෙවා Upgrade වන්න 💳
-          </button>
+          <div className="space-y-3">
+            <button
+              onClick={handlePaymentClick}
+              className="w-full bg-[#059669] hover:bg-[#047857] text-white font-bold p-3.5 sm:p-4 rounded-2xl shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all text-sm flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>රු. 300 ගෙවා Upgrade වන්න</span>
+              <span>💳</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="text-xs text-slate-400 hover:text-slate-600 underline font-medium cursor-pointer"
+            >
+              පසුව බලන්න
+            </button>
+          </div>
         </div>
+
+      </div>
+
+      {/* PayHere Compliance Legal Footer */}
+      <div className="mt-8 pt-4 flex flex-wrap justify-center gap-3 text-xs font-semibold text-slate-400">
+        <Link href="/privacy" className="hover:text-emerald-400 transition-colors">
+          Privacy Policy
+        </Link>
+        <span>•</span>
+        <Link href="/terms" className="hover:text-emerald-400 transition-colors">
+          Terms & Conditions
+        </Link>
+        <span>•</span>
+        <Link href="/refund" className="hover:text-emerald-400 transition-colors">
+          Refund Policy
+        </Link>
       </div>
 
       {/* Upgrade Modal Component */}
-      <UpgradeModal 
-        isOpen={showUpgradeModal} 
-        onClose={() => setShowUpgradeModal(false)} 
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
         userEmail={userEmail}
       />
     </div>

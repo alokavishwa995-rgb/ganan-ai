@@ -387,7 +387,7 @@ export default function LoginPage() {
   // 👤 LOGGED IN VIEW (Responsive & Photo Upload)
   if (userProfile) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-slate-950 p-4 sm:p-8 font-sans">
+      <div className="flex justify-center items-center min-h-screen bg-slate-950 p-4 pb-28 sm:p-8 sm:pb-28 font-sans">
         <div className="bg-white p-6 sm:p-9 rounded-[32px] shadow-2xl w-full max-w-md sm:max-w-lg border border-slate-100 text-center relative overflow-hidden transition-all">
           
           <div className="absolute -top-16 -right-16 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
@@ -469,8 +469,12 @@ export default function LoginPage() {
             </button>
           </div>
 
-          {/* PayHere Compliance Legal Links */}
-          <div className="pt-4 border-t border-slate-100 flex justify-center gap-3 text-[11px] sm:text-xs font-semibold text-slate-400">
+          {/* PayHere Compliance Legal & Pricing Links */}
+          <div className="pt-4 border-t border-slate-100 flex flex-wrap justify-center gap-2.5 text-[11px] sm:text-xs font-semibold text-slate-400">
+            <Link href="/pricing" className="hover:text-emerald-600 transition-colors">
+              Pricing
+            </Link>
+            <span>•</span>
             <Link href="/privacy" className="hover:text-emerald-600 transition-colors">
               Privacy Policy
             </Link>
@@ -489,9 +493,9 @@ export default function LoginPage() {
     );
   }
 
-  // 🔐 LOGIN / SIGNUP / OTP FORM VIEW
+  // 🔐 LOGIN / SIGNUP / OTP FORM VIEW (Publicly Visible Pricing & Policies)
   return (
-    <div className="flex justify-center items-center min-h-screen bg-slate-950 p-4 sm:p-8 font-sans">
+    <div className="flex justify-center items-center min-h-screen bg-slate-950 p-4 pb-28 sm:p-8 sm:pb-28 font-sans">
       <div className="bg-white p-6 sm:p-9 rounded-[32px] shadow-2xl w-full max-w-md sm:max-w-lg border border-slate-100 relative overflow-hidden transition-all">
         
         <div className="text-center mb-6">
@@ -686,7 +690,7 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-6 text-xs sm:text-sm text-center space-y-2">
+            <div className="mt-5 text-xs sm:text-sm text-center space-y-2">
               {isResetMode ? (
                 <p
                   onClick={() => {
@@ -716,6 +720,36 @@ export default function LoginPage() {
             </div>
           </>
         )}
+
+        {/* Neat & Compact Public Pricing + Legal Footer (Visible Without Login) */}
+        <div className="mt-6 pt-4 border-t border-slate-100 text-center space-y-2.5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600">
+            <span>Free Plan: <strong>LKR 0</strong></span>
+            <span className="text-slate-300">|</span>
+            <span>Pro Plan: <strong className="text-emerald-600">LKR 300/mo</strong></span>
+            <Link href="/pricing" className="text-blue-600 font-bold hover:underline ml-0.5">
+              විස්තර →
+            </Link>
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-2.5 text-[11px] font-semibold text-slate-400">
+            <Link href="/pricing" className="hover:text-emerald-600 transition-colors">
+              Pricing
+            </Link>
+            <span>•</span>
+            <Link href="/privacy" className="hover:text-emerald-600 transition-colors">
+              Privacy Policy
+            </Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:text-emerald-600 transition-colors">
+              Terms & Conditions
+            </Link>
+            <span>•</span>
+            <Link href="/refund" className="hover:text-emerald-600 transition-colors">
+              Refund Policy
+            </Link>
+          </div>
+        </div>
 
       </div>
     </div>

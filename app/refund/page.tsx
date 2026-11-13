@@ -2,13 +2,13 @@ import Link from 'next/link';
 
 export default function RefundPolicy() {
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-6 md:p-12 max-w-4xl mx-auto font-sans leading-relaxed">
+    <main className="min-h-screen bg-slate-950 text-white p-6 pb-28 md:p-12 md:pb-28 max-w-4xl mx-auto font-sans leading-relaxed">
       <Link href="/login" className="text-emerald-400 text-sm hover:underline mb-6 inline-block font-semibold">
         ← Back to Account Page
       </Link>
       
       <h1 className="text-3xl font-extrabold mb-2 text-emerald-400">Refund Policy</h1>
-      <p className="text-slate-400 text-sm mb-8">Last Updated: October 26, 2026</p>
+      <p className="text-slate-400 text-sm mb-8">Last Updated: November 13, 2026</p>
 
       <section className="space-y-6 text-slate-300">
         
@@ -46,16 +46,16 @@ export default function RefundPolicy() {
           </ul>
         </div>
 
-        {/* 4. PayHere Mandatory Statement */}
+        {/* 4. PayHere & Partner Bank Mandatory Statement */}
         <div>
-          <h2 className="text-xl font-bold text-white mb-2">4. Refund Processing & Payment Method</h2>
+          <h2 className="text-xl font-bold text-white mb-2">4. Refund Processing & Payment Media</h2>
           <div className="bg-emerald-950/40 p-4 rounded-2xl border border-emerald-500/30 my-3">
             <p className="font-semibold text-emerald-300 text-sm">
-              "All refunds will be credited back to the original payment method used to initiate the payment."
+              All approved refunds will be given and credited back to the original payment-initiated media itself within 5 to 10 business days.
             </p>
           </div>
           <p className="text-xs text-slate-400">
-            Approved refunds will be processed within 5 to 10 business days, depending on your card issuer or banking partner.
+            Processing times may vary slightly depending on your card issuer, mobile wallet provider, or banking partner.
           </p>
         </div>
 
@@ -65,7 +65,7 @@ export default function RefundPolicy() {
           <p className="text-sm">
             To submit a refund request, please email our support team with your registered email address and transaction ID:
           </p>
-          <p className="font-bold text-emerald-400 mt-1 text-sm">Email:ganithamithura52@gmail.com</p>
+          <p className="font-bold text-emerald-400 mt-1 text-sm">Email: ganithamithura52@gmail.com</p>
         </div>
 
       </section>

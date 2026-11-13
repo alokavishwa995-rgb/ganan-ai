@@ -6,8 +6,18 @@ import { usePathname } from "next/navigation";
 export default function BottomNav() {
   const pathname = usePathname();
 
-  // 🚫 Chat පිටුවේදී සහ Photo Scanner පිටුවේදී BottomNav එක Hide කරයි
-  if (pathname === "/chaat" || pathname === "/scanner") {
+  // 🚫 Chat, Photo Scanner, Login සහ Pricing / Legal පිටුවලදී BottomNav එක Hide කරයි
+  const hiddenRoutes = [
+    "/chaat",
+    "/scanner",
+    "/login",
+    "/pricing",
+    "/privacy",
+    "/terms",
+    "/refund",
+  ];
+
+  if (hiddenRoutes.includes(pathname)) {
     return null;
   }
 
